@@ -1,0 +1,47 @@
+services:
+  php:
+    image: yiisoftware/yii2-php:7.4-apache
+    volumes:
+      - ~/.composer-docker/cache:/root/.composer/cache:delegated
+      - ./:/app:delegated
+    ports:
+      - '8000:80'
+    depends_on:
+      - db
+    networks:
+      - yii2-network
+    command: >
+              /bin/sh -c "composer install &&
+              php yii migrate --interactive=0 &&
+              apache2-foreground"
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: platform
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user_password
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - yii2-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+    ports:
+      - '8080:80'
+    networks:
+      - yii2-network
+
+networks:
+  yii2-network:
+
+volumes:
+  db_data:
