@@ -148,7 +148,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     <p class="timestamps mb-0" data-time="124">02:04 - Доступ к документу</p>
                     <p class="timestamps mb-0" data-time="171">02:51 - Загрузка файлов</p>
                     <p class="timestamps mb-0" data-time="219">03:39 - Публикация</p>
-                    <p class="timestamps mb-0" data-time="277">04:367 - Заключение</p>
+                    <p class="timestamps mb-0" data-time="277">04:37 - Заключение</p>
                 </div>
             </div>
         </div>
