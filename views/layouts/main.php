@@ -24,7 +24,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/svg+xml', 'sizes' => '
 <!DOCTYPE html>
 <html lang="<?= Yii::$app->language ?>">
 <head>
-    <title><?= Html::encode($this->title) ?></title>
+    <title><?= Yii::$app->params['siteName'] ?> - <?= Html::encode($this->title) ?></title>
 
     <?php $this->head() ?>
 
