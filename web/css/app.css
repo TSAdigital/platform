@@ -15821,4 +15821,23 @@ select.is-invalid + .select2-container--krajee-bs5 .select2-selection__rendered 
 .timestamps:hover {
     color: #0056b3;
 }
+
+.tab-pane:focus {
+    outline: none;
+}
+
+.tab-pane {
+    outline: none;
+}
+
+.tab-content {
+    outline: none;
+}
+
+.navbar-nav .nav-link:focus,
+.navbar-nav .nav-link:active,
+.navbar-nav .nav-link:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
 /*# sourceMappingURL=app.css.map*/
