@@ -17,6 +17,13 @@ $this->registerMetaTag(['name' => 'description', 'content' => $this->params['met
 $this->registerMetaTag(['name' => 'keywords', 'content' => $this->params['meta_keywords'] ?? '']);
 $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'sizes' => 'any', 'href' => Yii::getAlias('@web/favicon.ico')]);
 $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/svg+xml', 'sizes' => 'any', 'href' => Yii::getAlias('@web/favicon.svg')]);
+$this->registerJs("
+    $(document).on('pjax:end', function() {
+        var siteName = '" . Yii::$app->params['siteName'] . "';
+        var pageTitle = document.title.split(' - ')[0];
+        document.title = siteName + ' - ' + pageTitle;
+    });
+");
 ?>
 
 <?php $this->beginPage() ?>
