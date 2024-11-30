@@ -3,7 +3,6 @@
 use app\models\DocumentAccess;
 use yii\bootstrap5\LinkPager;
 use yii\helpers\Html;
-use yii\widgets\DetailView;
 use yii\widgets\ListView;
 
 /** @var yii\web\View $this */
@@ -24,7 +23,6 @@ $script = <<< JS
 JS;
 $this->registerJs($script);
 ?>
-
 <div class="d-grid d-md-block">
 
     <?php if (Yii::$app->user->can('updateDocument', ['document' => $model])) : ?>
@@ -63,7 +61,8 @@ $this->registerJs($script);
 
 <div class="card">
     <div class="card-body">
-        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+        <div class="overflow-auto custom-scroll">
+        <ul class="nav nav-pills mb-2 flex-nowrap" id="pills-tab" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link tab-link active" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-home" type="button" role="tab" aria-controls="pills-home" aria-selected="true">Основное</button>
             </li>
@@ -89,53 +88,94 @@ $this->registerJs($script);
             <?php endif; ?>
 
         </ul>
+        </div>
         <div class="tab-content" id="pills-tabContent">
             <div class="tab-pane fade show active" id="pills-home" role="tabpanel" aria-labelledby="pills-home-tab" tabindex="0">
+                <div class="row py-2">
+                    <div class="col-12 col-md-auto col-name">
+                        <?= $model->getAttributeLabel('name') ?>
+                    </div>
+                    <div class="col-12 col-md">
+                        <?= Html::encode($model->name) ?>
+                    </div>
+                </div>
 
-                <?= DetailView::widget([
-                    'model' => $model,
-                    'options' => ['class' => 'table table-striped table-bordered detail-view mb-0'],
-                    'attributes' => [
-                        [
-                            'attribute' => 'name',
-                            'captionOptions' => ['width' => '170px'],
-                        ],
-                        [
-                            'attribute' => 'description',
-                            'format' => 'ntext',
-                            'visible' => !empty($model->description),
-                        ],
-                        [
-                            'attribute' => 'status',
-                            'value' => $model->getStatusName()
-                        ],
-                        [
-                            'attribute' => 'created_by',
-                            'value' => $model->createdBy->getEmployeeFullName(),
-                        ],
-                        'created_at:datetime',
-                        'updated_at:datetime',
-                    ],
-                ]) ?>
+                <?php if ($model->description) : ?>
 
+                <div class="row border-top py-2">
+                    <div class="col-12 col-md-auto col-name text-bold">
+                        <?= $model->getAttributeLabel('description') ?>
+                    </div>
+                    <div class="col-12 col-md">
+                        <?= Html::encode($model->description) ?>
+                    </div>
+                </div>
+
+                <?php endif; ?>
+
+                <div class="row border-top py-2">
+                    <div class="col-12 col-md-auto col-name text-bold">
+                        <?= $model->getAttributeLabel('status') ?>
+                    </div>
+                    <div class="col-12 col-md">
+                        <?= $model->getStatusName() ?>
+                    </div>
+                </div>
+                <div class="row border-top py-2">
+                    <div class="col-12 col-md-auto col-name text-bold">
+                        <?= $model->getAttributeLabel('created_by') ?>
+                    </div>
+                    <div class="col-12 col-md">
+                        <?= Html::encode($model->createdBy->getEmployeeFullName()) ?>
+                    </div>
+                </div>
+                <div class="row border-top py-2">
+                    <div class="col-12 col-md-auto col-name text-bold">
+                        <?= $model->getAttributeLabel('created_at') ?>
+                    </div>
+                    <div class="col-12 col-md">
+                        <?= Html::encode(Yii::$app->formatter->asDatetime($model->created_at)) ?>
+                    </div>
+                </div>
+                <div class="row border-top pt-2">
+                    <div class="col-12 col-md-auto col-name text-bold">
+                        Запись обновлена
+                    </div>
+                    <div class="col-12 col-md">
+                        <?= Html::encode(Yii::$app->formatter->asDatetime($model->updated_at)) ?>
+                    </div>
+                </div>
             </div>
 
             <?php if (Yii::$app->user->can('accessDocumentList', ['document' => $model])) : ?>
 
             <div class="tab-pane fade" id="pills-access" role="tabpanel" aria-labelledby="pills-access-tab" tabindex="0">
-                <table class="table table-striped table-bordered mb-0">
-                    <thead>
-                    <tr>
-                        <th class="text-center">#</th>
-                        <th class="col-12">Пользователь</th>
-                        <th class="text-center"><?= Yii::$app->user->can('accessDocumentAdd', ['document' => $model]) ? Html::a(Html::tag('svg', '', ['class' => 'align-middle text-success', 'data-feather' => 'plus-circle']), '#pills-access', ['class' => 'modalAccess', 'title' => 'Предоставить доступ']) : Html::tag('svg', '', ['class' => 'align-middle text-success text-muted', 'data-feather' => 'plus-circle'])  ?></th>
-                    </tr>
-                    </thead>
-                    <tbody>
+                <div class="row text-bold">
+                    <div class="col-auto text-center py-2 fixed-column fw-bold">#</div>
+                    <div class="col py-2 fw-bold">Пользователь</b></div>
+                    <div class="col-md-6 d-none d-md-block py-2 fw-bold">Должность</div>
+                    <div class="col-auto text-center py-2 fixed-column">
+
+                        <?= Yii::$app->user->can('accessDocumentAdd', ['document' => $model])
+                            ?
+                            Html::a(Html::tag('svg', '', [
+                                'class' => 'align-middle text-success',
+                                'data-feather' => 'plus-circle']),
+                                '#pills-access',
+                                ['class' => 'modalAccess', 'title' => 'Предоставить доступ'
+                                ])
+                            :
+                            Html::tag('svg', '', [
+                                'class' => 'align-middle text-success text-muted',
+                                'data-feather' => 'plus-circle'
+                            ])
+                        ?>
+
+                    </div>
 
                     <?= ListView::widget([
                         'dataProvider' => $accessDataProvider,
-                        'emptyText' => '<td colspan="3">Доступ к документу пока никому не предоставлен.</td>',
+                        'emptyText' => '<div class="py-2 border-top">Доступ к документу пока никому не предоставлен.</div>',
                         'itemView' => function ($model, $key, $index, $widget) {
                             $currentPage = $widget->dataProvider->pagination->page;
                             $pageSize = $widget->dataProvider->pagination->pageSize;
@@ -147,22 +187,20 @@ $this->registerJs($script);
                             ]);
                         },
                         'layout' => "{items}",
-                        ]);
+                    ]);
                     ?>
 
-                    </tbody>
-                </table>
-
+                </div>
                 <div class="pagination-container">
 
-                    <?php if ($accessDataProvider->pagination->getPageCount() > 1) : ?>
+                <?php if ($accessDataProvider->pagination->getPageCount() > 1) : ?>
 
-                        <?= LinkPager::widget([
-                            'pagination' => $accessDataProvider->pagination,
-                            'options' => ['class' => 'mt-3'],
-                        ]) ?>
+                    <?= LinkPager::widget([
+                        'pagination' => $accessDataProvider->pagination,
+                        'options' => ['class' => 'mt-3'],
+                    ]) ?>
 
-                    <?php endif; ?>
+                <?php endif; ?>
 
                 </div>
             </div>
@@ -170,20 +208,31 @@ $this->registerJs($script);
             <?php endif; ?>
 
             <div class="tab-pane fade" id="pills-file" role="tabpanel" aria-labelledby="pills-file-tab" tabindex="0">
-                <table class="table table-striped table-bordered mb-0">
-                    <thead>
-                    <tr>
-                        <th class="text-center">#</th>
-                        <th class="col-11 col-md-6">Файл</th>
-                        <th class="d-none d-md-table-cell col-md-6">Информация</th>
-                        <th class="text-center"><?= Yii::$app->user->can('fileUploadDocument', ['document' => $model]) ? Html::a(Html::tag('svg', '', ['class' => 'align-middle text-success', 'data-feather' => 'plus-circle']), ['document/upload', 'id' => $model->id], ['title' => 'Добавить файлы']) : Html::tag('svg', '', ['class' => 'align-middle text-success text-muted', 'data-feather' => 'plus-circle'])  ?></th>
-                    </tr>
-                    </thead>
-                    <tbody>
+                <div class="row text-bold">
+                    <div class="col-auto text-center py-2 fixed-column fw-bold">#</div>
+                    <div class="col py-2 fw-bold">Файл</b></div>
+                    <div class="col-md-6 d-none d-md-block py-2 fw-bold">Информация</div>
+                    <div class="col-auto text-center py-2 fixed-column">
+
+                        <?= Yii::$app->user->can('fileUploadDocument', ['document' => $model])
+                            ?
+                            Html::a(Html::tag('svg', '', [
+                                'class' => 'align-middle text-success',
+                                'data-feather' => 'plus-circle']),
+                                ['document/upload', 'id' => $model->id],
+                                ['title' => 'Добавить файлы']
+                            )
+                            : Html::tag('svg', '', [
+                                    'class' => 'align-middle text-success text-muted',
+                                'data-feather' => 'plus-circle'
+                            ])
+                        ?>
+
+                    </div>
 
                     <?= ListView::widget([
                         'dataProvider' => $fileDataProvider,
-                        'emptyText' => '<td colspan="4">В данном разделе пока нет файлов.</td>',
+                        'emptyText' => '<div class="py-2 border-top">В данном разделе пока нет файлов.</div>',
                         'itemView' => function ($model, $key, $index, $widget) {
                             $currentPage = $widget->dataProvider->pagination->page;
                             $pageSize = $widget->dataProvider->pagination->pageSize;
@@ -197,8 +246,7 @@ $this->registerJs($script);
                         'layout' => "{items}",
                     ]) ?>
 
-                    </tbody>
-                </table>
+                </div>
                 <div class="pagination-container">
 
                     <?php if ($fileDataProvider->pagination->getPageCount() > 1) : ?>
@@ -216,19 +264,15 @@ $this->registerJs($script);
             <?php if (Yii::$app->user->can('eventDocumentView', ['document' => $model])) : ?>
 
             <div class="tab-pane fade" id="pills-event" role="tabpanel" aria-labelledby="pills-event-tab" tabindex="0">
-                <table class="table table-striped table-bordered mb-0">
-                    <thead>
-                    <tr>
-                        <th class="text-center">#</th>
-                        <th class="col-11 col-md-8">Событие</th>
-                        <th class="d-none d-md-table-cell col-md-4 text-center">Дата и время</th>
-                    </tr>
-                    </thead>
-                    <tbody>
+
+                <div class="row text-bold">
+                    <div class="col-auto text-center py-2 fixed-column fw-bold">#</div>
+                    <div class="col py-2 fw-bold">Событие</b></div>
+                    <div class="col-md-4 d-none d-md-block py-2 text-center fw-bold">Дата и время</div>
 
                     <?= ListView::widget([
                         'dataProvider' => $eventDataProvider,
-                        'emptyText' => '<td colspan="4">В данном разделе пока нет событий.</td>',
+                        'emptyText' => '<div class="py-2 border-top">В данном разделе пока нет событий.</div>',
                         'itemView' => function ($model, $key, $index, $widget) {
                             $currentPage = $widget->dataProvider->pagination->page;
                             $pageSize = $widget->dataProvider->pagination->pageSize;
@@ -242,8 +286,7 @@ $this->registerJs($script);
                         'layout' => "{items}",
                     ]) ?>
 
-                    </tbody>
-                </table>
+                </div>
                 <div class="pagination-container">
 
                     <?php if ($eventDataProvider->pagination->getPageCount() > 1) : ?>

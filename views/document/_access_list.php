@@ -7,13 +7,18 @@
 use yii\bootstrap5\Html;
 ?>
 
-<tr>
-    <td class="text-center text-nowrap"><?= $index ?></td>
-    <td class="col-12"><?= Html::encode($model->user->getEmployeeFullNameAndPosition()) ?></td>
-    <td class="text-center">
+<div class="row border-top">
+    <div class="col-auto text-center py-2 justify-content-center align-self-center text-nowrap fixed-column"><?= $index ?></div>
+    <div class="col py-2 justify-content-center align-self-center">
+        <?= Html::a(Html::encode($model->user->getEmployeeFullName()), ['site/profile', 'id' => $model->user->id], ['data-pjax' => 0, 'target' => '_blank']) ?>
+        <span class="d-block d-md-none small"><?= isset($model->user->employee->position->name) ? Html::encode($model->user->employee->position->name) : 'Должность не указана' ?></span>
+    </div>
+    <div class="col-md-6 d-none d-md-block py-2 justify-content-center align-self-center"><?= isset($model->user->employee->position->name) ? Html::encode($model->user->employee->position->name) : 'Должность не указана' ?></div>
+    <div class="col-auto text-center py-2 justify-content-center align-self-center fixed-column">
         <?= Yii::$app->user->can('accessDocumentCancel', ['access' => $model]) ?  Html::a(Html::tag('svg', '', ['class' => 'align-middle text-danger', 'data-feather' => 'x-circle']), ['document/cancel-access', 'id' => $model->id], ['data' => [
             'confirm' => 'Вы уверены, что хотите отменить доступ для этого пользователя?',
             'method' => 'post',
-        ], 'title' => 'Отменить доступ']) : Html::tag('svg', '', ['class' => 'align-middle text-success text-muted', 'data-feather' => 'x-circle'])?>
-    </td>
-</tr>
+        ], 'title' => 'Отменить доступ']) : Html::tag('svg', '', ['class' => 'align-middle text-success text-muted', 'data-feather' => 'x-circle'])
+        ?>
+    </div>
+</div>

@@ -15,7 +15,7 @@ use yii\bootstrap5\Html;
             <div class="col-4 text-end">
                 <ul class="list-inline">
                     <li class="list-inline-item">
-                        Версия 1.0.0
+                        Версия 1.0.1
                     </li>
                 </ul>
             </div>

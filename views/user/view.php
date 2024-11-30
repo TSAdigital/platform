@@ -1,7 +1,6 @@
 <?php
 
 use yii\helpers\Html;
-use yii\widgets\DetailView;
 
 /** @var yii\web\View $this */
 /** @var app\models\User $model */
@@ -45,32 +44,67 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <div class="card">
     <div class="card-body">
+        <div class="row pb-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('username') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->username) ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('role') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->getRoleName()) ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('email') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Yii::$app->formatter->asEmail($model->email) ?>
+            </div>
+        </div>
 
-        <?= DetailView::widget([
-            'model' => $model,
-            'options' => ['class' => 'table table-striped table-bordered detail-view mb-0'],
-            'attributes' => [
-                [
-                    'attribute' => 'username',
-                    'captionOptions' => ['width' => '170px'],
-                ],
-                [
-                    'attribute' => 'role',
-                    'value' => $model->getRoleName()
-                ],
-                'email:email',
-                [
-                    'attribute' => 'telegram_chat_id',
-                    'visible' => $model->telegram_chat_id != null,
-                ],
-                [
-                    'attribute' => 'status',
-                    'value' => $model->getStatusName()
-                ],
-                'created_at:datetime',
-                'updated_at:datetime',
-            ],
-        ]) ?>
+        <?php if ($model->telegram_chat_id) : ?>
 
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('telegram_chat_id') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->telegram_chat_id) ?>
+            </div>
+        </div>
+
+        <?php endif; ?>
+
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('status') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= $model->getStatusName() ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('created_at') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode(Yii::$app->formatter->asDatetime($model->created_at)) ?>
+            </div>
+        </div>
+        <div class="row border-top pt-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                Запись обновлена
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode(Yii::$app->formatter->asDatetime($model->updated_at)) ?>
+            </div>
+        </div>
     </div>
 </div>

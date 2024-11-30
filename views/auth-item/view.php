@@ -1,7 +1,6 @@
 <?php
 
 use yii\helpers\Html;
-use yii\widgets\DetailView;
 
 /** @var yii\web\View $this */
 /** @var app\models\AuthItem $model */
@@ -45,33 +44,37 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <div class="card">
     <div class="card-body">
-
-        <?= DetailView::widget([
-            'model' => $model,
-            'options' => ['class' => 'table table-striped table-bordered detail-view mb-0'],
-            'attributes' => [
-                [
-                    'attribute' => 'description',
-                    'label' => 'Наименование',
-                    'captionOptions' => ['width' => '170px'],
-                ],
-                [
-                    'attribute' => 'status',
-                    'label' => 'Статус',
-                    'value' => $model->getStatusName()
-                ],
-                [
-                    'attribute' => 'created_at',
-                    'format' => 'datetime',
-                    'label' => 'Запись создана',
-                ],
-                [
-                    'attribute' => 'updated_at',
-                    'format' => 'datetime',
-                    'label' => 'Запись обновлена',
-                ],
-            ],
-        ]) ?>
-
+        <div class="row pb-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('description') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->description) ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('status') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= $model->getStatusName() ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('created_at') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode(Yii::$app->formatter->asDatetime($model->created_at)) ?>
+            </div>
+        </div>
+        <div class="row border-top pt-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                Запись обновлена
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode(Yii::$app->formatter->asDatetime($model->updated_at)) ?>
+            </div>
+        </div>
     </div>
 </div>

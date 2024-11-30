@@ -15840,4 +15840,31 @@ select.is-invalid + .select2-container--krajee-bs5 .select2-selection__rendered 
     outline: none !important;
     box-shadow: none !important;
 }
+.custom-scroll {
+    overflow-x: auto;
+}
+
+.custom-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.custom-scroll {
+    scrollbar-width: none;
+}
+
+
+.col-name {
+    width: 200px;
+}
+
+.fixed-column {
+    width: 50px;
+}
+
+@media (max-width: 767.98px) {
+    .col-name {
+        max-width: 100%;
+        font-weight: bold!important;
+    }
+}
 /*# sourceMappingURL=app.css.map*/

@@ -1,7 +1,6 @@
 <?php
 
 use yii\helpers\Html;
-use yii\widgets\DetailView;
 
 /** @var yii\web\View $this */
 /** @var app\models\Employee $model */
@@ -21,36 +20,88 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <div class="card">
     <div class="card-body">
+        <div class="row pb-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('last_name') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->last_name) ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('first_name') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->first_name) ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('middle_name') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->middle_name) ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('birth_date') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->birth_date) ?>
+            </div>
+        </div>
 
-        <?= DetailView::widget([
-            'model' => $model,
-            'options' => ['class' => 'table table-striped table-bordered detail-view mb-0'],
-            'attributes' => [
-                [
-                    'attribute' => 'last_name',
-                    'captionOptions' => ['width' => '170px'],
-                ],
-                'first_name',
-                'middle_name',
-                'birth_date',
-                [
-                    'attribute' => 'user_id',
-                    'captionOptions' => ['width' => '170px'],
-                    'value' => $model->user ? $model->user->username : null,
-                ],
-                [
-                    'attribute' => 'position_id',
-                    'captionOptions' => ['width' => '170px'],
-                    'value' => $model->position ? $model->position->name : null,
-                ],
-                [
-                    'attribute' => 'status',
-                    'value' => $model->getStatusName()
-                ],
-                'created_at:datetime',
-                'updated_at:datetime',
-            ],
-        ]) ?>
+        <?php if (isset($model->user->username)) : ?>
 
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('user_id') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->user->username) ?>
+            </div>
+        </div>
+
+        <?php endif; ?>
+
+        <?php if (isset($model->position->name)) : ?>
+
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name">
+                <?= $model->getAttributeLabel('position_id') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode($model->position->name) ?>
+            </div>
+        </div>
+
+        <?php endif; ?>
+
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('status') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= $model->getStatusName() ?>
+            </div>
+        </div>
+        <div class="row border-top py-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                <?= $model->getAttributeLabel('created_at') ?>
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode(Yii::$app->formatter->asDatetime($model->created_at)) ?>
+            </div>
+        </div>
+        <div class="row border-top pt-2">
+            <div class="col-12 col-md-auto col-name text-bold">
+                Запись обновлена
+            </div>
+            <div class="col-12 col-md">
+                <?= Html::encode(Yii::$app->formatter->asDatetime($model->updated_at)) ?>
+            </div>
+        </div>
     </div>
 </div>
