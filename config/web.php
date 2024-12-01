@@ -114,6 +114,16 @@ $config = [
                 'position/<id:\d+>' => 'position/view',
                 'position/<id:\d+>/update' => 'position/update',
 
+                'issuers' => 'issuer/index',
+                'issuer/create' => 'issuer/create',
+                'issuer/<id:\d+>' => 'issuer/view',
+                'issuer/<id:\d+>/update' => 'issuer/update',
+
+                'certificates' => 'certificate/index',
+                'certificate/create' => 'certificate/create',
+                'certificate/<id:\d+>' => 'certificate/view',
+                'certificate/<id:\d+>/update' => 'certificate/update',
+
                 'users' => 'user/index',
                 'user/create' => 'user/create',
                 'user/<id:\d+>' => 'user/view',
