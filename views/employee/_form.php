@@ -49,9 +49,6 @@ use yii\widgets\MaskedInput;
     <?= $form->field($model, 'position_id')->widget(Select2::class,
         [
             'data' => $model::getActivePositionList(),
-            'options' => [
-                'placeholder' => 'Выберите должность...',
-            ],
             'pluginOptions' => [
                 'allowClear' => true,
                 'placeholder' => 'Выберите должность...',
