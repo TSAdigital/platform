@@ -3,6 +3,7 @@
 namespace app\controllers;
 
 use app\components\QrCodeGenerator;
+use app\models\Certificate;
 use app\models\Document;
 use app\models\DocumentEvent;
 use Yii;
@@ -172,10 +173,15 @@ class SiteController extends Controller
             ],
         ]);
 
+        $employeeId = isset(Yii::$app->user->identity->employee->id) ? Yii::$app->user->identity->employee->id : null;
+
+        $certificates = Certificate::find()->where(['employee_id' => $employeeId, 'status' => Certificate::STATUS_ACTIVE])->all();
+
         return $this->render('profile', [
             'qrCodeGenerator' => $qrCodeGenerator,
             'telegramBotUrl' => $telegramBotUrl,
             'eventDataProvider' => $eventDataProvider,
+            'certificates' => $certificates,
         ]);
     }
 }

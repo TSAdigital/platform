@@ -11,6 +11,7 @@ return [
 
     'telegram' => false,
     'telegram_bot' => 'https://t.me/bot_url',
+    'telegram_certificate_chat' => '',
 
     'specialist_support' => 'Максимов Максим Максимович',
     'phone_support' => '+7 (351) 000-00-00 доб. 146',

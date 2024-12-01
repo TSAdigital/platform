@@ -89,6 +89,7 @@ php yii import/init
 ```php
 'telegram' => true,
 'telegram_bot' => 'https://t.me/bot_url',
+'telegram_certificate_chat' => '<номер телеграм-чата для уведомлений об истекающих сертификатах>',
 ```
 
 ### 3. Настройка CRON
@@ -170,7 +171,7 @@ sudo systemctl start yii2-queue.service
 's3_link_expiration' => 300,
 ```
 
-### 3. Настройка CRON
+### 3. Настройка CRON для файлов
 
 Не используйте данный функционал для файлов большого размера. Для больших файлов необходимо дорабатывать функционал загрузки, чтобы обеспечить их корректную обработку.
 
@@ -190,6 +191,28 @@ sudo systemctl start yii2-queue.service
 
 ```
 0 4 * * * /usr/bin/php /var/www/project/yii file/delete-file-to-local-storage
+```
+
+### 4. Настройка CRON для сертификатов
+
+Эти команды следует использовать с осторожностью, особенно при наличии вероятности сбоя времени на сервере.
+
+Для автоматической смены статуса сертификатов на `Не действует` по истечении срока действия:
+
+```
+0 5 * * * /usr/bin/php /var/www/project/yii certificate/check-valid
+```
+
+Для автоматического удаления сертификатов со статусом `Не действует`:
+
+```
+0 6 * * * /usr/bin/php /var/www/project/yii certificate/delete-inactive
+```
+
+Для уведомления через Telegram-бота об истечении срока действия сертификата:
+
+```
+0 10 * * * /usr/bin/php /var/www/project/yii certificate/send-message-telegram-bot
 ```
 
 ## Использование Docker

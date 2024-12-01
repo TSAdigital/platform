@@ -20,6 +20,13 @@ use app\widgets\SidebarMenu;
                     'visible' => Yii::$app->user->can('viewDocumentMenu'),
                 ],
                 [
+                    'label' => 'Сертификаты',
+                    'url' => ['certificate/index'],
+                    'icon' => 'pocket',
+                    'active' => $this->context->getUniqueId() == 'certificate',
+                    'visible' => Yii::$app->user->can('viewCertificateMenu'),
+                ],
+                [
                     'label' => 'Помощь',
                     'url' => ['site/help'],
                     'icon' => 'help-circle',
@@ -37,6 +44,7 @@ use app\widgets\SidebarMenu;
                     'visible' => in_array(true, [
                         Yii::$app->user->can('viewPositionMenu'),
                         Yii::$app->user->can('viewEmployeeMenu'),
+                        Yii::$app->user->can('viewIssuerMenu'),
                     ], true)
                 ],
                 [
@@ -53,11 +61,18 @@ use app\widgets\SidebarMenu;
                     'active' => $this->context->getUniqueId() == 'employee',
                     'visible' => Yii::$app->user->can('viewEmployeeMenu'),
                 ],
+                                [
+                    'label' => 'Удостоверяющие центры',
+                    'url' => ['issuer/index'],
+                    'icon' => 'check-square',
+                    'active' => $this->context->getUniqueId() == 'issuer',
+                    'visible' => Yii::$app->user->can('viewIssuerMenu'),
+                ],
                 [
                     'header' => 'Администрирование',
                     'visible' => in_array(true, [
                         Yii::$app->user->can('viewUserMenu'),
-                        Yii::$app->user->can('viewRoleMenu')
+                        Yii::$app->user->can('viewRoleMenu'),
                     ], true)
                 ],
                 [

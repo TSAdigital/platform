@@ -358,6 +358,20 @@ class AuthItemController extends Controller
                 'eventOwnDocumentView',
                 'eventDocumentView'
             ],
+            'Сертификаты' => [
+                'viewCertificateMenu',
+                'viewCertificateList',
+                'viewCertificate',
+                'createCertificate',
+                'updateCertificate'
+            ],
+            'Удостоверяющие центры' => [
+                'viewIssuerMenu',
+                'viewIssuerList',
+                'viewIssuer',
+                'createIssuer',
+                'updateIssuer'
+            ],
         ];
     }
 

@@ -4,8 +4,10 @@
 /** @var string $telegramBotUrl */
 /** @var QrCodeGenerator $qrCodeGenerator */
 /** @var DocumentEvent $eventDataProvider */
+/** @var Certificate $certificates */
 
 use app\components\QrCodeGenerator;
+use app\models\Certificate;
 use app\models\DocumentEvent;
 use app\widgets\AvatarWidget;
 use yii\bootstrap5\LinkPager;
@@ -29,7 +31,7 @@ $this->registerJs($script);
 
 <div class="site-profile">
     <div class="row">
-        <div class="col-md-4 col-xl-3">
+        <div class="col-md-5 col-xl-4">
             <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="card-title mb-0">Детали профиля</h5>
@@ -80,9 +82,35 @@ $this->registerJs($script);
 
             <?php endif; ?>
 
+            <?php if($certificates) : ?>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title text-truncate">Сертификат электронной подписи</h5>
+
+                    <?php foreach ($certificates as $certificate) : ?>
+
+                        <p class="mb-0"><b>Владелец:</b> <?= $certificate->employee->getFullName() ?></p>
+
+                        <?php if ($certificate->serial_number) : ?>
+
+                        <p class="mb-0 text-truncate"><b>Серийный номер:</b> <?= $certificate->serial_number ?></p>
+
+                        <?php endif; ?>
+
+                        <p class="mb-0"><b>Издатель:</b> <?= $certificate->issuer->name ?></p>
+                        <p class="mb-0"><b>Действует:</b> с <?= $certificate->valid_from ?> по <?= $certificate->valid_to ?></p>
+
+                    <?php endforeach; ?>
+
+                </div>
+            </div>
+
+            <?php endif; ?>
+
         </div>
 
-        <div class="col-md-8 col-xl-9">
+        <div class="col-md-7 col-xl-8">
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">Активность</h5>
