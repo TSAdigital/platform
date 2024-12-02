@@ -10,7 +10,7 @@ use yii\bootstrap5\Html;
 <div class="row border-top">
     <div class="col-auto text-center py-2 justify-content-center align-self-center text-nowrap fixed-column"><?= $index ?></div>
     <div class="col py-2 justify-content-center align-self-center">
-        <?= Html::a(Html::encode($model->user->getEmployeeFullName()), ['site/profile', 'id' => $model->user->id], ['data-pjax' => 0, 'target' => '_blank']) ?>
+        <?= Html::encode($model->user->getEmployeeFullName()) ?>
         <span class="d-block d-md-none small"><?= isset($model->user->employee->position->name) ? Html::encode($model->user->employee->position->name) : 'Должность не указана' ?></span>
     </div>
     <div class="col-md-6 d-none d-md-block py-2 justify-content-center align-self-center"><?= isset($model->user->employee->position->name) ? Html::encode($model->user->employee->position->name) : 'Должность не указана' ?></div>
