@@ -12,7 +12,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <div class="card">
     <div class="card-body">
-        <h4>Техническая поддержка</h4>
+        <h3>Техническая поддержка</h3>
         <p class="mb-0">Если у вас возникли вопросы, связанные с работой нашего сервиса, вы можете обратиться в техническую поддержку:</p>
         <p class="mb-0">Специалист: <?= Yii::$app->params['specialist_support'] ?></p>
         <p class="mb-0">Номер телефона: <?= Yii::$app->params['phone_support'] ?></p>
@@ -52,10 +52,10 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <div class="card">
     <div class="card-body">
-        <h4>Инструкция по работе с документами</h4>
+        <h3>Инструкция по работе с документами</h3>
         <p class="mb-2">Видеоинструкцию можно <?= Html::a('<strong>посмотреть</strong>', '#!', ['class' => 'video-link', 'data-video' => 'doc.mp4', 'data-title' => 'Видеоинструкция - работа с документами']) ?> на сайте или <?= Html::a('<strong>скачать</strong>', '@web/video/doc.mp4', ['target' => '_blank']) ?> и посмотреть на устройстве.</p>
         <div id="video-container"></div>
-        <h5 class="mb-1">Создание нового документа</h5>
+        <h4 class="mb-1">Создание нового документа</h4>
         <ol>
             <li>
                 Перейдите в раздел <?= Html::a('<strong>Документы</strong>', ['document/index'], ['target' => '_blank']) ?>.
@@ -75,7 +75,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </li>
         </ol>
 
-        <h5 class="mb-1">Редактирование документа</h5>
+        <h4 class="mb-1">Редактирование документа</h4>
         <ol>
             <li>
                 Перейдите в раздел <?= Html::a('<strong>Документы</strong>', ['document/index'], ['target' => '_blank']) ?> и выберите нужный документ из списка.
@@ -91,7 +91,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </li>
         </ol>
 
-        <h5 class="mb-1">Управление доступом</h5>
+        <h4 class="mb-1">Управление доступом</h4>
         <ol>
             <li>
                 Внутри документа найдите вкладку <strong>Доступ</strong>, которая находится в верхней части страницы.
@@ -102,7 +102,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </li>
         </ol>
 
-        <h5 class="mb-1">Добавление файлов</h5>
+        <h4 class="mb-1">Добавление файлов</h4>
         <ol>
             <li>
                 Внутри документа найдите вкладку <strong>Файлы</strong>, которая находится в верхней части страницы.
@@ -115,7 +115,7 @@ $this->params['breadcrumbs'][] = $this->title;
             </li>
         </ol>
 
-        <h5 class="mb-1">Публикация документа</h5>
+        <h4 class="mb-1">Публикация документа</h4>
         <ol class="mb-0">
             <li>
                 В меню документа найдите кнопку <strong>Опубликовать</strong> и нажмите на неё. Это действие завершит процесс работы с документом и он станет доступен выбранным сотрудникам.
@@ -128,7 +128,7 @@ $this->params['breadcrumbs'][] = $this->title;
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="videoModalLabel">Видеоинструкция</h5>
+                <h4 class="modal-title" id="videoModalLabel">Видеоинструкция</h4>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" tabindex="-1" aria-label="Close"></button>
             </div>
             <div class="modal-body">

@@ -75,9 +75,9 @@
     --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --bs-gradient: linear-gradient(180deg, hsla(0, 0%, 100%, .15), hsla(0, 0%, 100%, 0));
     --bs-body-font-family: var(--bs-font-sans-serif);
-    --bs-body-font-size: 0.875rem;
+    --bs-body-font-size: 0.95rem;
     --bs-body-font-weight: 400;
-    --bs-body-line-height: 1.5;
+    --bs-body-line-height: 1.3;
     --bs-body-color: #495057;
     --bs-body-color-rgb: 73, 80, 87;
     --bs-body-bg: #f5f7fb;
@@ -14149,8 +14149,8 @@ body {
 
 .sidebar {
     direction: ltr;
-    max-width: 260px;
-    min-width: 260px
+    max-width: 280px;
+    min-width: 280px
 }
 
 .sidebar, .sidebar-content {
@@ -14215,8 +14215,8 @@ body {
 .sidebar-brand {
     color: #f8f9fa;
     display: block;
-    font-size: 1.15rem;
-    font-weight: 600;
+    font-size: 1.25rem;
+    font-weight: 500;
     padding: 1.15rem 1.5rem
 }
 
@@ -14237,12 +14237,12 @@ body {
 }
 
 .sidebar.collapsed {
-    margin-left: -260px
+    margin-left: -280px
 }
 
 @media (min-width: 1px)and (max-width: 991.98px) {
     .sidebar {
-        margin-left: -260px
+        margin-left: -280px
     }
 
     .sidebar.collapsed {
@@ -14257,7 +14257,7 @@ body {
 .sidebar-header {
     background: transparent;
     color: #ced4da;
-    font-size: .75rem;
+    font-size: .85rem;
     padding: 1.5rem 1.5rem .375rem
 }
 
@@ -15512,7 +15512,7 @@ span.flatpickr-weekday {
     position: -webkit-sticky;
     position: sticky;
     top: 0;
-    width: 260px
+    width: 280px
 }
 
 .breadcrumb {

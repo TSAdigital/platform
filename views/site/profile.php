@@ -66,7 +66,7 @@ $this->registerJs($script);
                 <div class="modal-dialog modal-md">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="telegramLabel">Подключить телеграм</h5>
+                            <h4 class="modal-title" id="telegramLabel">Подключить телеграм</h4>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" tabindex="-1" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">

@@ -313,7 +313,7 @@ $this->registerJs($script);
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="accessLabel">Предоставить доступ</h5>
+                <h4 class="modal-title" id="accessLabel">Предоставить доступ</h4>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" tabindex="-1" aria-label="Close"></button>
             </div>
             <div class="modal-body">
