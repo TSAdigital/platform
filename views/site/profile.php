@@ -34,7 +34,7 @@ $this->registerJs($script);
         <div class="col-md-5 col-xl-4">
             <div class="card mb-3">
                 <div class="card-header">
-                    <h5 class="card-title mb-0">Детали профиля</h5>
+                    <h5 class="card-title">Детали профиля</h5>
                 </div>
                 <div class="card-body text-center">
 
@@ -46,7 +46,7 @@ $this->registerJs($script);
 
                     <?php if (isset(Yii::$app->user->identity->username)) : ?>
 
-                    <h5 class="card-title mb-0"><?= Html::encode(Yii::$app->user->identity->getEmployeeFullName())?></h5>
+                    <h5 class="card-title"><?= Html::encode(Yii::$app->user->identity->getEmployeeFullName())?></h5>
 
                     <?php endif; ?>
                     <?php if (isset(Yii::$app->user->identity->roleName)) : ?>
@@ -85,8 +85,10 @@ $this->registerJs($script);
             <?php if($certificates) : ?>
 
             <div class="card mb-3">
+                <div class="card-header border-bottom">
+                    <h5 class="card-title">Сертификат электронной подписи</h5>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title text-truncate">Сертификат электронной подписи</h5>
 
                     <?php foreach ($certificates as $certificate) : ?>
 
@@ -112,8 +114,8 @@ $this->registerJs($script);
 
         <div class="col-md-7 col-xl-8">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Активность</h5>
+                <div class="card-header border-bottom">
+                    <h5 class="card-title">Активность</h5>
                 </div>
                 <div class="card-body h-100">
 

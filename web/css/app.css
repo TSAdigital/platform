@@ -4730,12 +4730,12 @@ textarea.form-control-lg {
 .card-body {
     color: var(--bs-card-color);
     flex: 1 1 auto;
-    padding: var(--bs-card-spacer-y) var(--bs-card-spacer-x)
+    padding: var(--bs-card-spacer-y) var(--bs-card-spacer-x);
 }
 
 .card-title {
     color: var(--bs-card-title-color);
-    margin-bottom: var(--bs-card-title-spacer-y)
+    margin-bottom: 0;
 }
 
 .card-subtitle {
@@ -4760,7 +4760,7 @@ textarea.form-control-lg {
     border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color);
     color: var(--bs-card-cap-color);
     margin-bottom: 0;
-    padding: var(--bs-card-cap-padding-y) var(--bs-card-cap-padding-x)
+    padding: 1rem 1.25rem 1rem 1.25rem;
 }
 
 .card-header:first-child {
@@ -13770,9 +13770,9 @@ textarea.form-control-lg {
 }
 
 .card-title {
-    color: #939ba2;
-    font-size: .925rem;
-    font-weight: 600
+    color: #606060;
+    font-size: 1rem;
+    font-weight: 400
 }
 
 .card-subtitle {
