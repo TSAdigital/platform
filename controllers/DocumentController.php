@@ -454,7 +454,7 @@ class DocumentController extends Controller
                     $fileName = $this->generateUniqueFileName($file->name);
                     $documentFile = new DocumentFile();
                     $documentFile->document_id = $document->id;
-                    $documentFile->name = $file->name;
+                    $documentFile->name = preg_replace('/\.[^.]+$/', '', $file->name);
                     $documentFile->stored_name = $currentYearMonth . '/' . $fileName;
                     $documentFile->size = $file->size;
                     $documentFile->type = $file->type;
@@ -531,13 +531,14 @@ class DocumentController extends Controller
 
         if ($model) {
             $filePath = Yii::getAlias('@webroot/uploads/' . $model->stored_name);
+            $fileExtension = pathinfo($filePath, PATHINFO_EXTENSION);
 
             if (file_exists($filePath)) {
                 if ($document->created_by !== $userId) {
                     DocumentEvent::createEvent($document->id, $userId, 'скачал(а) файл - ' . $model->name);
                 }
 
-                return Yii::$app->response->sendFile($filePath, $model->name);
+                return Yii::$app->response->sendFile($filePath, $model->name . '.' . $fileExtension);
             }
         }
 

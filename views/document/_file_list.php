@@ -16,6 +16,7 @@ use yii\bootstrap5\Html;
                 [
                     Html::encode($model->createdBy->getEmployeeFullName()),
                     Yii::$app->formatter->asDate($model->created_at),
+                    explode('/', $model->type)[1],
                     Html::encode(number_format($model->size / (1024 * 1024), 2) . ' МБ')
                 ]
             ); ?>
@@ -26,6 +27,7 @@ use yii\bootstrap5\Html;
             [
                 Html::encode($model->createdBy->getEmployeeFullName()),
                 Yii::$app->formatter->asDate($model->created_at),
+                explode('/', $model->type)[1],
                 Html::encode(number_format($model->size / (1024 * 1024), 2) . ' МБ')
             ]
         ); ?>
