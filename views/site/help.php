@@ -25,7 +25,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h1 class="modal-title fs-5" id="staticBackdropLabel">Телеграм технической поддержки</h1>
+                        <h4 class="modal-title" id="staticBackdropLabel">Телеграм технической поддержки</h4>
                         <button type="button" class="btn-close" tabindex="-1" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
