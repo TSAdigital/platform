@@ -121,6 +121,7 @@ $config = [
 
                 'certificates' => 'certificate/index',
                 'certificate/create' => 'certificate/create',
+                'certificates/analytics' => 'certificate/analytics',
                 'certificate/<id:\d+>' => 'certificate/view',
                 'certificate/<id:\d+>/update' => 'certificate/update',
 

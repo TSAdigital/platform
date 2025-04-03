@@ -30,17 +30,29 @@ $this->registerJs($script);
     <div class="card-body">
         <div class="d-flex flex-row">
             <div class="flex-grow-1">
+                <p>
 
-                <?php if (Yii::$app->user->can('createCertificate')) : ?>
+                    <?php if (Yii::$app->user->can('createCertificate')) : ?>
 
-                    <p><?= Html::a('Добавить', ['create'], ['class' => 'btn btn-success']) ?></p>
+                        <?= Html::a('Добавить', ['create'], ['class' => 'btn btn-success']) ?>
 
-                <?php else: ?>
+                    <?php else: ?>
 
-                    <p><?= Html::a('Добавить', '#', ['class' => 'btn btn-success disabled']) ?></p>
+                        <?= Html::a('Добавить', '#', ['class' => 'btn btn-success disabled']) ?>
 
-                <?php endif; ?>
+                    <?php endif; ?>
 
+                    <?php if (Yii::$app->user->can('viewCertificateAnalytics')) : ?>
+
+                        <?= Html::a('Аналитика', ['analytics'], ['class' => 'btn btn-primary']) ?>
+
+                    <?php else: ?>
+
+                        <?= Html::a('Аналитика', '#', ['class' => 'btn btn-primary disabled']) ?>
+
+                    <?php endif; ?>
+
+                </p>
             </div>
             <div class="col-auto" style="min-width: 50px;">
 

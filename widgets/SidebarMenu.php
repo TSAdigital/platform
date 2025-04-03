@@ -2,13 +2,26 @@
 
 namespace app\widgets;
 
+use Yii;
 use yii\base\Widget;
 use yii\helpers\Html;
 
 class SidebarMenu extends Widget
 {
     public $items = [];
+
+    public $userPermissions = [];
     private $defaultIcon = 'minus';
+
+    public function init()
+    {
+        parent::init();
+
+        if (empty($this->userPermissions)) {
+            $permissions = Yii::$app->authManager->getPermissionsByUser(Yii::$app->user->id);
+            $this->userPermissions = array_keys($permissions);
+        }
+    }
 
     public function run()
     {
@@ -46,7 +59,24 @@ class SidebarMenu extends Widget
 
     private function isVisible($item)
     {
-        return !isset($item['visible']) || $item['visible'];
+        if (!isset($item['visible'])) {
+            return true; // Пункт меню виден по умолчанию
+        }
+
+        if (is_bool($item['visible'])) {
+            return $item['visible']; // Явное указание видимости
+        }
+
+        if (is_string($item['visible'])) {
+            return in_array($item['visible'], $this->userPermissions); // Проверка одного разрешения
+        }
+
+        if (is_array($item['visible'])) {
+            // Проверяем, есть ли хотя бы одно разрешение из массива в списке прав пользователя
+            return !empty(array_intersect($item['visible'], $this->userPermissions));
+        }
+
+        return false; // По умолчанию скрываем пункт
     }
 
     private function renderItem($item)

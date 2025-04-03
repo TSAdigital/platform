@@ -363,7 +363,8 @@ class AuthItemController extends Controller
                 'viewCertificateList',
                 'viewCertificate',
                 'createCertificate',
-                'updateCertificate'
+                'updateCertificate',
+                'viewCertificateAnalytics'
             ],
             'Удостоверяющие центры' => [
                 'viewIssuerMenu',

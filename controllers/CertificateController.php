@@ -6,6 +6,7 @@ use app\models\Certificate;
 use app\models\CertificateSearch;
 use app\models\Employee;
 use Yii;
+use yii\data\ArrayDataProvider;
 use yii\db\Query;
 use yii\filters\AccessControl;
 use yii\web\Controller;
@@ -38,6 +39,11 @@ class CertificateController extends Controller
                             'allow' => true,
                             'actions' => ['view'],
                             'roles' => ['viewCertificate'],
+                        ],
+                        [
+                            'allow' => true,
+                            'actions' => ['analytics'],
+                            'roles' => ['viewCertificateAnalytics'],
                         ],
                         [
                             'allow' => true,
@@ -180,5 +186,50 @@ class CertificateController extends Controller
         $out['results'] = array_merge($out['results'], $data);
 
         return $out;
+    }
+
+    /**
+     * @return string
+     */
+    public function actionAnalytics()
+    {
+        $certificatesDataProvider = new ArrayDataProvider([
+            'allModels' => Certificate::find()->all(),
+            'pagination' => [
+                'pageSize' => 10,
+            ],
+            'sort' => [
+                'attributes' => [
+                    'status',
+                    'valid_to',
+                    'id',
+                ],
+                'defaultOrder' => [
+                    'status' => SORT_DESC,
+                    'valid_to' => SORT_ASC,
+                    'id' => SORT_ASC,
+                ],
+            ],
+        ]);
+
+        $data = Certificate::find()
+            ->select([
+                'COUNT(*) as total_count',
+                'SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as active_count',
+                'SUM(CASE WHEN status != 1 THEN 1 ELSE 0 END) as inactive_count'
+            ])
+            ->asArray()
+            ->one();
+
+        $totalCertificates = $data['total_count'];
+        $activeCertificates = $data['active_count'];
+        $inactiveCertificates = $data['inactive_count'];
+
+        return $this->render('analytics', [
+            'certificatesDataProvider' => $certificatesDataProvider,
+            'totalCertificates' => $totalCertificates,
+            'activeCertificates' => $activeCertificates,
+            'inactiveCertificates' => $inactiveCertificates,
+        ]);
     }
 }
