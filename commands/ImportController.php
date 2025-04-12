@@ -2,110 +2,290 @@
 
 namespace app\commands;
 
-use app\models\Employee;
-use app\models\Position;
-use app\models\User;
-use moonland\phpexcel\Excel;
 use Yii;
 use yii\base\Exception;
 use yii\console\Controller;
+use yii\console\ExitCode;
+use yii\helpers\ArrayHelper;
 use yii\helpers\BaseConsole;
+use moonland\phpexcel\Excel;
+use app\models\User;
+use app\models\Employee;
+use app\models\Position;
 
 class ImportController extends Controller
 {
+    private const REQUIRED_COLUMNS = [
+        'Фамилия',
+        'Имя',
+        'Отчество',
+        'Дата рождения',
+        'Должность',
+        'Почта',
+    ];
+
+    private const DEFAULT_EMAIL_DOMAIN = '@mail.local';
 
     /**
-     * @return void
+     * Импорт пользователей из Excel файла
+     * @return int
+     */
+    public function actionInit(): int
+    {
+        $this->stdout("Начало импорта пользователей...\n", BaseConsole::FG_YELLOW);
+
+        try {
+            $filePath = Yii::getAlias('@app/web/import/import.xlsx');
+
+            if (!file_exists($filePath)) {
+                throw new Exception("Файл импорта не найден: {$filePath}");
+            }
+
+            $data = Excel::import($filePath);
+            if (empty($data)) {
+                throw new Exception("Файл импорта пуст или не может быть прочитан");
+            }
+
+            // Проверяем наличие всех необходимых колонок
+            $this->checkColumns($data[0]);
+
+            $users = [];
+            $transaction = Yii::$app->db->beginTransaction();
+
+            /** @var array $data */
+            foreach ($data as $index => $row) {
+                $rowNumber = $index + 1;
+                $this->stdout("Обработка строки {$rowNumber}... ", BaseConsole::FG_GREY);
+
+                try {
+                    $userData = $this->prepareUserData($row);
+                    $user = $this->createUser($userData);
+                    $this->createEmployee($user, $userData);
+
+                    $users[] = [
+                        'name' => $userData['fullName'],
+                        'username' => $user->username,
+                        'email' => $user->email,
+                        'password' => $userData['password'],
+                    ];
+
+                    $this->stdout("успешно\n", BaseConsole::FG_GREEN);
+                } catch (Exception $e) {
+                    $transaction->rollBack();
+                    $this->stdout("ошибка\n", BaseConsole::FG_RED);
+                    $this->stdout("Ошибка в строке {$rowNumber}: {$e->getMessage()}\n", BaseConsole::FG_RED);
+                    return ExitCode::UNSPECIFIED_ERROR;
+                }
+            }
+
+            $transaction->commit();
+            $this->saveUsersToFile($users);
+
+            $this->stdout("\nИмпорт успешно завершен!\n", BaseConsole::FG_GREEN);
+            $this->stdout("Всего обработано записей: " . count($users) . "\n", BaseConsole::FG_YELLOW);
+            $this->stdout("Файл с учетными данными создан: @app/web/export/users.txt\n", BaseConsole::FG_YELLOW);
+
+            return ExitCode::OK;
+        } catch (Exception $e) {
+            $this->stdout("\nОшибка импорта: {$e->getMessage()}\n", BaseConsole::FG_RED);
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+    }
+
+    /**
+     * Проверяет наличие всех необходимых колонок
+     * @param array $firstRow
      * @throws Exception
      */
-    public function actionInit()
+    private function checkColumns(array $firstRow): void
     {
-        $url = Yii::getAlias('@app/web/import/import.xlsx');
-        $data = (array) Excel::import($url);
+        $missingColumns = array_diff(
+            self::REQUIRED_COLUMNS,
+            array_keys($firstRow)
+        );
 
-        $users = [];
-
-        foreach ($data as $value) {
-            $lastName = trim($value['Фамилия']);
-            $firstName = trim($value['Имя']);
-            $middleName = trim($value['Отчество']);
-            $birthdate = trim($value['Дата рождения']);
-            $position = trim($value['Должность']);
-            $email = trim($value['Почта']);
-            $password = $this->generatePassword();
-
-            $user = new User();
-            $user->username = $this->customTransliterate($lastName) . $this->getLeadingUppercase($this->customTransliterate($firstName)) . $this->getLeadingUppercase($this->customTransliterate($middleName));
-            $user->auth_key = Yii::$app->security->generateRandomString();
-            $user->password_hash = password_hash($password, PASSWORD_DEFAULT);
-            $user->email = !empty($email) ? $email : strtolower($this->getLeadingUppercase($this->customTransliterate($firstName)) . '.'. $this->customTransliterate($lastName) . '@mail.local');
-            $user->unique_id = Yii::$app->security->generateRandomString(12);
-            $user->status = User::STATUS_ACTIVE;
-            $user->role = 'user';
-
-            if ($user->save()) {
-                $users[] = [
-                    'name' => implode(' ', [$lastName, $firstName, $middleName]),
-                    'username' => $user->username,
-                    'email' => $user->email,
-                    'password' => $password
-                ];
-
-                $employee = new Employee();
-                $employee->last_name = $lastName;
-                $employee->first_name = $firstName;
-                $employee->middle_name = $middleName;
-                $employee->birth_date = date('d.m.Y', strtotime($birthdate));
-                $employee->position_id = $this->getPositionId($position);
-                $employee->user_id = $user->id;
-                $employee->status = Employee::STATUS_ACTIVE;
-                $employee->save();
-            }
-
-            $content = "";
-
-            foreach ($users as $item) {
-                $content .= "{$item['name']}/{$item['username']}/{$item['password']}/{$item['email']}\n";
-            }
-
-            $filePath = Yii::getAlias('@app/web/export/users.txt');
-
-            if (file_exists($filePath)) {
-                unlink($filePath);
-            }
-
-            file_put_contents($filePath, $content);
+        if (!empty($missingColumns)) {
+            throw new Exception(sprintf(
+                "Отсутствуют обязательные колонки: %s",
+                implode(', ', $missingColumns)
+            ));
         }
-        $this->stdout("Импорт пользователей завершен!\n", BaseConsole::FG_GREEN);
     }
 
     /**
-     * @param $position
-     * @return false|int
-     * @throws \yii\db\Exception
+     * Подготавливает данные пользователя
+     * @param array $row
+     * @return array
+     * @throws Exception
      */
-    function getPositionId($position)
+    private function prepareUserData(array $row): array
     {
-        $model = Position::findOne(['name' => $position]);
+        $lastName = trim(ArrayHelper::getValue($row, 'Фамилия', ''));
+        $firstName = trim(ArrayHelper::getValue($row, 'Имя', ''));
+        $middleName = trim(ArrayHelper::getValue($row, 'Отчество', ''));
+        $birthdate = trim(ArrayHelper::getValue($row, 'Дата рождения', ''));
+        $position = trim(ArrayHelper::getValue($row, 'Должность', ''));
+        $email = trim(ArrayHelper::getValue($row, 'Почта', ''));
 
-        if($model){
-            return $model->id;
-        } else {
-            $model = new Position();
-            $model->name = $position;
-            $model->status = Position::STATUS_ACTIVE;
-            if ($model->save()) {
-                return $model->id;
-            }
+        if (empty($lastName) || empty($firstName) || empty($birthdate) || empty($position)) {
+            throw new Exception("Обязательные поля не заполнены");
         }
-        return false;
+
+        $birthdateTimestamp = strtotime($birthdate);
+        if (!$birthdateTimestamp) {
+            throw new Exception("Неверный формат даты рождения");
+        }
+
+        return [
+            'lastName' => $lastName,
+            'firstName' => $firstName,
+            'middleName' => $middleName,
+            'fullName' => implode(' ', array_filter([$lastName, $firstName, $middleName])),
+            'birthdate' => date('d.m.Y', $birthdateTimestamp),
+            'position' => $position,
+            'email' => $email,
+            'password' => $this->generatePassword(),
+        ];
     }
 
     /**
-     * @param $surname
+     * Создает пользователя
+     * @param array $userData
+     * @return User
+     * @throws Exception
+     */
+    private function createUser(array $userData): User
+    {
+        $user = new User();
+        $user->username = $this->generateUsername(
+            $userData['lastName'],
+            $userData['firstName'],
+            $userData['middleName']
+        );
+        $user->auth_key = Yii::$app->security->generateRandomString();
+        $user->password_hash = Yii::$app->security->generatePasswordHash($userData['password']);
+        $user->email = $this->generateEmail($userData['email'], substr($userData['firstName'], 0, 2), $userData['lastName']);
+        $user->unique_id = Yii::$app->security->generateRandomString(12);
+        $user->status = User::STATUS_ACTIVE;
+        $user->role = 'user';
+
+        if (!$user->save()) {
+            throw new Exception("Ошибка сохранения пользователя: " . implode(', ', $user->getFirstErrors()));
+        }
+
+        return $user;
+    }
+
+    /**
+     * Создает сотрудника
+     * @param User $user
+     * @param array $userData
+     * @throws Exception
+     */
+    private function createEmployee(User $user, array $userData): void
+    {
+        $employee = new Employee();
+        $employee->last_name = $userData['lastName'];
+        $employee->first_name = $userData['firstName'];
+        $employee->middle_name = $userData['middleName'];
+        $employee->birth_date = $userData['birthdate'];
+        $employee->position_id = $this->getPositionId($userData['position']);
+        $employee->user_id = $user->id;
+        $employee->status = Employee::STATUS_ACTIVE;
+
+        if (!$employee->save()) {
+            throw new Exception("Ошибка сохранения сотрудника: " . implode(', ', $employee->getFirstErrors()));
+        }
+    }
+
+    /**
+     * Сохраняет данные пользователей в файл
+     * @param array $users
+     */
+    private function saveUsersToFile(array $users): void
+    {
+        $content = "";
+        foreach ($users as $user) {
+            $content .= "{$user['name']}/{$user['username']}/{$user['password']}/{$user['email']}\n";
+        }
+
+        $dirPath = Yii::getAlias('@app/web/export');
+        if (!file_exists($dirPath)) {
+            mkdir($dirPath, 0755, true);
+        }
+
+        $filePath = "{$dirPath}/users.txt";
+        file_put_contents($filePath, $content);
+    }
+
+    /**
+     * Генерирует username
+     * @param string $lastName
+     * @param string $firstName
+     * @param string $middleName
      * @return string
      */
-    function customTransliterate($surname)
+    private function generateUsername(string $lastName, string $firstName, string $middleName): string
+    {
+        $transliteratedLastName = $this->customTransliterate($lastName);
+        $transliteratedFirstName = $this->customTransliterate($firstName);
+        $transliteratedMiddleName = $this->customTransliterate($middleName);
+
+        return $transliteratedLastName
+            . $this->getLeadingUppercase($transliteratedFirstName)
+            . $this->getLeadingUppercase($transliteratedMiddleName);
+    }
+
+    /**
+     * Генерирует email
+     * @param string $email
+     * @param string $firstName
+     * @param string $lastName
+     * @return string
+     */
+    private function generateEmail(string $email, string $firstName, string $lastName): string
+    {
+        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+
+        $transliteratedFirstName = strtolower($this->customTransliterate($firstName));
+        $transliteratedLastName = strtolower($this->customTransliterate($lastName));
+
+        return "{$transliteratedFirstName}.{$transliteratedLastName}" . self::DEFAULT_EMAIL_DOMAIN;
+    }
+
+    /**
+     * Получает ID должности, создает если не существует
+     * @param string $positionName
+     * @return int
+     * @throws Exception
+     */
+    private function getPositionId(string $positionName): int
+    {
+        $position = Position::findOne(['name' => $positionName]);
+
+        if ($position) {
+            return $position->id;
+        }
+
+        $position = new Position();
+        $position->name = $positionName;
+        $position->status = Position::STATUS_ACTIVE;
+
+        if (!$position->save()) {
+            throw new Exception("Ошибка сохранения должности: " . implode(', ', $position->getFirstErrors()));
+        }
+
+        return $position->id;
+    }
+
+    /**
+     * Транслитерация строки
+     * @param string $string
+     * @return string
+     */
+    private function customTransliterate(string $string): string
     {
         $transliterationMap = [
             'А' => 'A', 'Б' => 'B', 'В' => 'V', 'Г' => 'G', 'Д' => 'D',
@@ -126,16 +306,11 @@ class ImportController extends Controller
         ];
 
         $transliterated = '';
-        $length = mb_strlen($surname);
+        $length = mb_strlen($string);
 
         for ($i = 0; $i < $length; $i++) {
-            $char = mb_substr($surname, $i, 1);
-
-            if (array_key_exists($char, $transliterationMap)) {
-                $transliterated .= $transliterationMap[$char];
-            } else {
-                $transliterated .= $char;
-            }
+            $char = mb_substr($string, $i, 1);
+            $transliterated .= $transliterationMap[$char] ?? $char;
         }
 
         $specialCases = ['Sh', 'Ch', 'Shch', 'Zh', 'Kh', 'Ts', 'Yu', 'Ya'];
@@ -149,14 +324,16 @@ class ImportController extends Controller
     }
 
     /**
-     * @param $string
+     * Получает заглавные буквы в начале строки
+     * @param string $string
      * @return string
      */
-    function getLeadingUppercase($string)
+    private function getLeadingUppercase(string $string): string
     {
         $result = '';
+        $length = strlen($string);
 
-        for ($i = 0; $i < strlen($string); $i++) {
+        for ($i = 0; $i < $length; $i++) {
             if (ctype_upper($string[$i])) {
                 $result .= $string[$i];
             } else {
@@ -168,24 +345,24 @@ class ImportController extends Controller
     }
 
     /**
+     * Генерирует пароль
      * @return string
      */
-    function generatePassword() {
+    private function generatePassword(): string
+    {
         $numbers = '123456789';
         $letters = 'abcdefghijklmnopqrstuvwxyz';
 
         $randomNumbers = '';
         for ($i = 0; $i < 6; $i++) {
-            $randomNumbers .= $numbers[rand(0, strlen($numbers) - 1)];
+            $randomNumbers .= $numbers[random_int(0, strlen($numbers) - 1)];
         }
 
         $randomLetters = '';
         for ($i = 0; $i < 2; $i++) {
-            $randomLetters .= $letters[rand(0, strlen($letters) - 1)];
+            $randomLetters .= $letters[random_int(0, strlen($letters) - 1)];
         }
 
-        $password = str_shuffle($randomNumbers . $randomLetters);
-
-        return $password;
+        return str_shuffle($randomNumbers . $randomLetters);
     }
 }
