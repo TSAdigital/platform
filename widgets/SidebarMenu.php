@@ -9,7 +9,6 @@ use yii\helpers\Html;
 class SidebarMenu extends Widget
 {
     public $items = [];
-
     public $userPermissions = [];
     private $defaultIcon = 'minus';
 
@@ -28,16 +27,15 @@ class SidebarMenu extends Widget
         $output = '<ul class="sidebar-nav">';
 
         foreach ($this->items as $item) {
-            if ($this->isHeader($item)) {
-                $output .= $this->renderHeader($item);
-                continue;
-            }
-
             if (!$this->isVisible($item)) {
                 continue;
             }
 
-            $output .= $this->renderItem($item);
+            if ($this->isHeader($item)) {
+                $output .= $this->renderHeader($item);
+            } else {
+                $output .= $this->renderItem($item);
+            }
         }
 
         $output .= '</ul>';
@@ -52,31 +50,33 @@ class SidebarMenu extends Widget
 
     private function renderHeader($item)
     {
-        return !isset($item['visible']) || $item['visible']
-            ? Html::tag('li', htmlspecialchars($item['header']), ['class' => 'sidebar-header'])
-            : '';
+        return Html::tag('li', htmlspecialchars($item['header']), ['class' => 'sidebar-header']);
     }
 
     private function isVisible($item)
     {
         if (!isset($item['visible'])) {
-            return true; // Пункт меню виден по умолчанию
+            return true;
         }
 
         if (is_bool($item['visible'])) {
-            return $item['visible']; // Явное указание видимости
+            return $item['visible'];
         }
 
         if (is_string($item['visible'])) {
-            return in_array($item['visible'], $this->userPermissions); // Проверка одного разрешения
+            return in_array($item['visible'], $this->userPermissions);
         }
 
         if (is_array($item['visible'])) {
-            // Проверяем, есть ли хотя бы одно разрешение из массива в списке прав пользователя
-            return !empty(array_intersect($item['visible'], $this->userPermissions));
+            foreach ($item['visible'] as $permission) {
+                if (in_array($permission, $this->userPermissions)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
-        return false; // По умолчанию скрываем пункт
+        return false;
     }
 
     private function renderItem($item)
