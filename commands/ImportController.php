@@ -26,9 +26,18 @@ class ImportController extends Controller
 
     private const DEFAULT_EMAIL_DOMAIN = '@mail.local';
 
+    private $importedCount = 0;
+    private $skippedCount = 0;
+
     /**
-     * Импорт пользователей из Excel файла
-     * @return int
+     * Основное действие для импорта пользователей из Excel файла
+     *
+     * Выполняет:
+     * 1. Загрузку и проверку файла
+     * 2. Создание пользователей и сотрудников
+     * 3. Сохранение учетных данных в файл
+     *
+     * @return int Код завершения (ExitCode::OK при успехе)
      */
     public function actionInit(): int
     {
@@ -46,7 +55,6 @@ class ImportController extends Controller
                 throw new Exception("Файл импорта пуст или не может быть прочитан");
             }
 
-            // Проверяем наличие всех необходимых колонок
             $this->checkColumns($data[0]);
 
             $users = [];
@@ -55,10 +63,26 @@ class ImportController extends Controller
             /** @var array $data */
             foreach ($data as $index => $row) {
                 $rowNumber = $index + 1;
-                $this->stdout("Обработка строки {$rowNumber}... ", BaseConsole::FG_GREY);
 
                 try {
                     $userData = $this->prepareUserData($row);
+
+                    $username = $this->generateUsername(
+                        $userData['lastName'],
+                        $userData['firstName'],
+                        $userData['middleName']
+                    );
+                    $email = $this->generateEmail(
+                        $userData['email'],
+                        substr($userData['firstName'], 0, 2),
+                        $userData['lastName']
+                    );
+
+                    if (User::find()->where(['or', ['username' => $username], ['email' => $email]])->exists()) {
+                        $this->skippedCount++;
+                        continue;
+                    }
+
                     $user = $this->createUser($userData);
                     $this->createEmployee($user, $userData);
 
@@ -69,21 +93,26 @@ class ImportController extends Controller
                         'password' => $userData['password'],
                     ];
 
-                    $this->stdout("успешно\n", BaseConsole::FG_GREEN);
+                    $this->importedCount++;
                 } catch (Exception $e) {
-                    $transaction->rollBack();
                     $this->stdout("ошибка\n", BaseConsole::FG_RED);
                     $this->stdout("Ошибка в строке {$rowNumber}: {$e->getMessage()}\n", BaseConsole::FG_RED);
+                    $transaction->rollBack();
                     return ExitCode::UNSPECIFIED_ERROR;
                 }
             }
 
             $transaction->commit();
-            $this->saveUsersToFile($users);
 
-            $this->stdout("\nИмпорт успешно завершен!\n", BaseConsole::FG_GREEN);
-            $this->stdout("Всего обработано записей: " . count($users) . "\n", BaseConsole::FG_YELLOW);
-            $this->stdout("Файл с учетными данными создан: @app/web/export/users.txt\n", BaseConsole::FG_YELLOW);
+            if ($this->importedCount > 0) {
+                $this->saveUsersToFile($users);
+                $this->stdout("Файл с учетными данными создан: @app/web/export/users.txt\n", BaseConsole::FG_YELLOW);
+            }
+
+            $this->stdout("\nИмпорт завершен!\n", BaseConsole::FG_GREEN);
+            $this->stdout("Всего обработано записей: " . (count($data)) . "\n", BaseConsole::FG_YELLOW);
+            $this->stdout("Успешно импортировано: {$this->importedCount}\n", BaseConsole::FG_GREEN);
+            $this->stdout("Пропущено (уже существует): {$this->skippedCount}\n", BaseConsole::FG_YELLOW);
 
             return ExitCode::OK;
         } catch (Exception $e) {
@@ -93,9 +122,10 @@ class ImportController extends Controller
     }
 
     /**
-     * Проверяет наличие всех необходимых колонок
-     * @param array $firstRow
-     * @throws Exception
+     * Проверяет наличие обязательных колонок в данных
+     *
+     * @param array $firstRow Первая строка данных из файла
+     * @throws Exception Если отсутствуют обязательные колонки
      */
     private function checkColumns(array $firstRow): void
     {
@@ -113,10 +143,11 @@ class ImportController extends Controller
     }
 
     /**
-     * Подготавливает данные пользователя
-     * @param array $row
-     * @return array
-     * @throws Exception
+     * Подготавливает данные пользователя из строки файла
+     *
+     * @param array $row Строка данных из файла
+     * @return array Подготовленные данные пользователя
+     * @throws Exception Если обязательные поля не заполнены или неверный формат даты
      */
     private function prepareUserData(array $row): array
     {
@@ -149,10 +180,11 @@ class ImportController extends Controller
     }
 
     /**
-     * Создает пользователя
-     * @param array $userData
-     * @return User
-     * @throws Exception
+     * Создает нового пользователя в системе
+     *
+     * @param array $userData Данные пользователя
+     * @return User Созданный пользователь
+     * @throws Exception Если не удалось сохранить пользователя
      */
     private function createUser(array $userData): User
     {
@@ -177,10 +209,11 @@ class ImportController extends Controller
     }
 
     /**
-     * Создает сотрудника
-     * @param User $user
-     * @param array $userData
-     * @throws Exception
+     * Создает запись сотрудника на основе данных пользователя
+     *
+     * @param User $user Объект пользователя
+     * @param array $userData Данные пользователя
+     * @throws Exception Если не удалось сохранить сотрудника
      */
     private function createEmployee(User $user, array $userData): void
     {
@@ -199,8 +232,11 @@ class ImportController extends Controller
     }
 
     /**
-     * Сохраняет данные пользователей в файл
-     * @param array $users
+     * Сохраняет учетные данные пользователей в файл
+     *
+     * Формат файла: ФИО/логин/пароль/email
+     *
+     * @param array $users Массив с данными пользователей
      */
     private function saveUsersToFile(array $users): void
     {
@@ -219,11 +255,12 @@ class ImportController extends Controller
     }
 
     /**
-     * Генерирует username
-     * @param string $lastName
-     * @param string $firstName
-     * @param string $middleName
-     * @return string
+     * Генерирует уникальное имя пользователя на основе ФИО
+     *
+     * @param string $lastName Фамилия
+     * @param string $firstName Имя
+     * @param string $middleName Отчество
+     * @return string Сгенерированное имя пользователя
      */
     private function generateUsername(string $lastName, string $firstName, string $middleName): string
     {
@@ -237,11 +274,15 @@ class ImportController extends Controller
     }
 
     /**
-     * Генерирует email
-     * @param string $email
-     * @param string $firstName
-     * @param string $lastName
-     * @return string
+     * Генерирует email адрес на основе ФИО
+     *
+     * Если email указан в файле и валиден - использует его,
+     * иначе генерирует в формате имя.фамилия@mail.local
+     *
+     * @param string $email Email из файла (может быть пустым)
+     * @param string $firstName Имя
+     * @param string $lastName Фамилия
+     * @return string Email адрес
      */
     private function generateEmail(string $email, string $firstName, string $lastName): string
     {
@@ -256,10 +297,11 @@ class ImportController extends Controller
     }
 
     /**
-     * Получает ID должности, создает если не существует
-     * @param string $positionName
-     * @return int
-     * @throws Exception
+     * Получает ID должности, создает новую при необходимости
+     *
+     * @param string $positionName Название должности
+     * @return int ID должности
+     * @throws Exception Если не удалось создать должность
      */
     private function getPositionId(string $positionName): int
     {
@@ -281,9 +323,10 @@ class ImportController extends Controller
     }
 
     /**
-     * Транслитерация строки
-     * @param string $string
-     * @return string
+     * Транслитерирует русские символы в английские
+     *
+     * @param string $string Исходная строка
+     * @return string Транслитерированная строка
      */
     private function customTransliterate(string $string): string
     {
@@ -324,9 +367,10 @@ class ImportController extends Controller
     }
 
     /**
-     * Получает заглавные буквы в начале строки
-     * @param string $string
-     * @return string
+     * Извлекает заглавные буквы из начала строки
+     *
+     * @param string $string Исходная строка
+     * @return string Заглавные буквы из начала строки
      */
     private function getLeadingUppercase(string $string): string
     {
@@ -345,8 +389,11 @@ class ImportController extends Controller
     }
 
     /**
-     * Генерирует пароль
-     * @return string
+     * Генерирует случайный пароль
+     *
+     * Формат: 6 цифр + 2 буквы в случайном порядке
+     *
+     * @return string Сгенерированный пароль
      */
     private function generatePassword(): string
     {
