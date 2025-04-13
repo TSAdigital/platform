@@ -67,7 +67,8 @@ class Certificate extends ActiveRecord
 
             ['serial_number', 'string', 'max' => 255],
             ['serial_number', 'trim'],
-            ['serial_number', 'unique'],
+            ['serial_number', 'default', 'value' => null],
+            ['serial_number', 'unique', 'skipOnEmpty' => true],
 
             ['employee_id', 'integer'],
             ['employee_id', 'required'],
