@@ -222,8 +222,8 @@ class CertificateController extends Controller
             ->one();
 
         $totalCertificates = $data['total_count'];
-        $activeCertificates = $data['active_count'];
-        $inactiveCertificates = $data['inactive_count'];
+        $activeCertificates = $data['active_count'] ?: 0;
+        $inactiveCertificates = $data['inactive_count'] ?: 0;
 
         return $this->render('analytics', [
             'certificatesDataProvider' => $certificatesDataProvider,
