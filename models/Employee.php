@@ -2,39 +2,53 @@
 
 namespace app\models;
 
+use yii\base\InvalidConfigException;
 use yii\behaviors\BlameableBehavior;
 use yii\behaviors\TimestampBehavior;
+use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 
 /**
- * This is the model class for table "employee".
+ * Модель сотрудника организации.
+ * Содержит персональные данные, информацию о должности и статусе сотрудника.
  *
- * @property int $id
- * @property string $first_name
- * @property string $last_name
- * @property string|null $middle_name
- * @property string $full_name
- * @property string $birth_date
- * @property int $user_id
- * @property int $position_id
- * @property string $position_name
- * @property int $status
- * @property int $created_by
- * @property int $updated_by
- * @property int $created_at
- * @property int $updated_at
+ * @property int $id Уникальный идентификатор сотрудника
+ * @property string $first_name Имя
+ * @property string $last_name Фамилия
+ * @property string|null $middle_name Отчество (если имеется)
+ * @property string $full_name Полное ФИО (вычисляемое поле)
+ * @property string $birth_date Дата рождения в формате d.m.Y
+ * @property int $user_id ID связанного пользователя системы
+ * @property int $position_id ID должности
+ * @property string $position_name Название должности (вычисляемое поле)
+ * @property int $status Статус сотрудника (активен/неактивен)
+ * @property int $created_by ID пользователя, создавшего запись
+ * @property int $updated_by ID пользователя, обновившего запись
+ * @property int $created_at Временная метка создания записи
+ * @property int $updated_at Временная метка обновления записи
  *
- * @property Position $position
- * @property User $user
+ * @property Position $position Связанная должность
+ * @property User $user Связанный пользователь системы
+ * @property Remd[] $remds Связанные документы РЕМД
  */
+
 class Employee extends ActiveRecord
 {
+    /**
+     * Статус: сотрудник активен
+     */
     const STATUS_ACTIVE = 1;
+
+    /**
+     * Статус: сотрудник неактивен
+     */
     const STATUS_INACTIVE = 0;
 
     /**
-     * {@inheritdoc}
+     * Возвращает имя таблицы в базе данных, связанной с этой моделью.
+     *
+     * @return string Название таблицы в базе данных
      */
     public static function tableName()
     {
@@ -42,7 +56,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает список поведений, которые должны быть прикреплены к этой модели.
+     *
+     * @return array Массив конфигураций поведений
      */
     public function behaviors()
     {
@@ -53,7 +69,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает правила валидации для атрибутов модели.
+     *
+     * @return array Массив правил валидации
      */
     public function rules()
     {
@@ -84,7 +102,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает метки атрибутов для отображения.
+     *
+     * @return array Массив меток атрибутов в формате [атрибут => метка]
      */
     public function attributeLabels()
     {
@@ -105,9 +125,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * Gets query for [[Position]].
+     * Возвращает связь с должностью сотрудника.
      *
-     * @return \yii\db\ActiveQuery
+     * @return ActiveQuery Запрос для получения связанной должности
      */
     public function getPosition()
     {
@@ -115,9 +135,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * Gets query for [[User]].
+     * Возвращает связь с пользователем системы.
      *
-     * @return \yii\db\ActiveQuery
+     * @return ActiveQuery Запрос для получения связанного пользователя
      */
     public function getUser()
     {
@@ -125,7 +145,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return string[]
+     * Возвращает массив доступных статусов сотрудника.
+     *
+     * @return string[] Массив статусов в формате [код => название]
      */
     public static function getStatusesArray()
     {
@@ -136,8 +158,10 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return mixed
-     * @throws \Exception
+     * Возвращает текстовое название текущего статуса сотрудника.
+     *
+     * @return string Название статуса или 'Неизвестный статус' если статус не определен
+     * @throws \Exception Если произошла ошибка при получении статуса
      */
     public function getStatusName()
     {
@@ -145,7 +169,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return array
+     * Возвращает массив используемых в системе статусов сотрудников.
+     *
+     * @return array Массив уникальных статусов
      */
     public static function getAvailableStatuses()
     {
@@ -157,7 +183,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return array
+     * Возвращает список активных пользователей системы.
+     *
+     * @return array Массив пользователей в формате [id => username]
      */
     public static function getActiveUserList()
     {
@@ -165,7 +193,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return array
+     * Возвращает список активных должностей, отсортированных по названию.
+     *
+     * @return array Массив должностей в формате [id => name]
      */
     public static function getActivePositionList()
     {
@@ -173,8 +203,11 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @param $insert
-     * @return bool
+     * Обработчик перед сохранением модели.
+     * Конвертирует дату рождения из формата d.m.Y в Y-m-d для хранения в БД.
+     *
+     * @param bool $insert Флаг, указывающий выполняется вставка новой записи или обновление
+     * @return bool Возвращает true, если операция должна быть продолжена
      */
     public function beforeSave($insert)
     {
@@ -188,7 +221,8 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return void
+     * Обработчик после выборки данных из БД.
+     * Конвертирует дату рождения из формата Y-m-d в d.m.Y для отображения.
      */
     public function afterFind()
     {
@@ -199,7 +233,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return string
+     * Возвращает полное ФИО сотрудника.
+     *
+     * @return string Полное имя в формате "Фамилия Имя Отчество"
      */
     public function getFullName()
     {
@@ -213,7 +249,19 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return string
+     * Возвращает название должности сотрудника.
+     *
+     * @return string Название должности или 'Должность не указана' если должность не задана
+     */
+    public function getPositionName()
+    {
+        return $this->position ? $this->position->name : 'Должность не указана';
+    }
+
+    /**
+     * Возвращает полное ФИО сотрудника с указанием должности в скобках.
+     *
+     * @return string Строка в формате "Фамилия Имя Отчество (Должность)"
      */
     public function getFullNameAndPosition()
     {
@@ -231,7 +279,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return User|null
+     * Возвращает связанного пользователя системы.
+     *
+     * @return User|null Объект пользователя или null если пользователь не задан
      */
     public function getCurrentUser()
     {
@@ -242,7 +292,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return array
+     * Возвращает список текущих пользователей (для выпадающих списков).
+     *
+     * @return array Массив пользователей в формате [id => username] или пустой массив
      */
     public function getCurrentUserList()
     {
@@ -251,8 +303,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @param $attribute
-     * @return void
+     * Валидатор для проверки уникальности сотрудника по ФИО и дате рождения.
+     *
+     * @param string $attribute Проверяемый атрибут
      */
     public function validateUniquePerson($attribute)
     {
@@ -262,7 +315,9 @@ class Employee extends ActiveRecord
     }
 
     /**
-     * @return bool
+     * Проверяет, существует ли дубликат сотрудника с такими же ФИО и датой рождения.
+     *
+     * @return bool Возвращает true если дубликат существует
      */
     protected function isDuplicate()
     {
@@ -279,5 +334,17 @@ class Employee extends ActiveRecord
         } else {
             return $query->andWhere(['!=', 'id', $this->id])->exists();
         }
+    }
+
+    /**
+     * Возвращает связь с документами РЕМД через промежуточную таблицу.
+     *
+     * @return ActiveQuery Запрос для получения связанных документов РЕМД
+     * @throws InvalidConfigException Если связь настроена неправильно
+     */
+    public function getRemds()
+    {
+        return $this->hasMany(Remd::class, ['id' => 'remd_id'])
+            ->viaTable('{{%remd_employee}}', ['employee_id' => 'id']);
     }
 }

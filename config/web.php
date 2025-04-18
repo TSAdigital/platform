@@ -104,6 +104,10 @@ $config = [
                 'document/<id:\d+>/cancel' => 'document/cancel',
                 'document/<id:\d+>/<action:(file-delete|upload|download|add-access|cancel-access)>' => 'document/<action>',
 
+                'remd' => 'remd/index',
+                'remd/setting/base' => 'remd/base-setting',
+                'remd/setting/type' => 'remd/type-setting',
+
                 'employees' => 'employee/index',
                 'employee/create' => 'employee/create',
                 'employee/<id:\d+>' => 'employee/view',

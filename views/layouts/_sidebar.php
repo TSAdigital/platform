@@ -20,6 +20,13 @@ use app\widgets\SidebarMenu;
                     'visible' => 'viewDocumentMenu',
                 ],
                 [
+                    'label' => 'РЭМД',
+                    'url' => ['remd/index'],
+                    'icon' => 'clipboard',
+                    'active' => $this->context->getUniqueId() == 'remd',
+                    'visible' => 'viewRemdMenu',
+                ],
+                [
                     'label' => 'Сертификаты',
                     'url' => ['certificate/index'],
                     'icon' => 'pocket',

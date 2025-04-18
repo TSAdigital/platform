@@ -373,6 +373,11 @@ class AuthItemController extends Controller
                 'createIssuer',
                 'updateIssuer'
             ],
+            'РЭМД' => [
+                'viewRemdMenu',
+                'viewRemdList',
+                'makeRemdSetting',
+            ],
         ];
     }
 
