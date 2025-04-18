@@ -15761,4 +15761,15 @@ select.is-invalid + .select2-container--krajee-bs5 .select2-selection__rendered 
         font-weight: bold!important;
     }
 }
+
+*:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Для современных браузеров (более аккуратный способ) */
+*:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
 /*# sourceMappingURL=app.css.map*/
