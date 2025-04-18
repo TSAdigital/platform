@@ -6,6 +6,7 @@ use app\components\QrCodeGenerator;
 use app\models\Certificate;
 use app\models\Document;
 use app\models\DocumentEvent;
+use app\models\Remd;
 use Yii;
 use yii\base\InvalidConfigException;
 use yii\data\ArrayDataProvider;
@@ -177,11 +178,14 @@ class SiteController extends Controller
 
         $certificates = Certificate::find()->where(['employee_id' => $employeeId, 'status' => Certificate::STATUS_ACTIVE])->all();
 
+        $groupedDocuments = Remd::getGroupedByEmployee($employeeId);
+
         return $this->render('profile', [
             'qrCodeGenerator' => $qrCodeGenerator,
             'telegramBotUrl' => $telegramBotUrl,
             'eventDataProvider' => $eventDataProvider,
             'certificates' => $certificates,
+            'groupedDocuments' => $groupedDocuments,
         ]);
     }
 }

@@ -99,4 +99,65 @@ class Remd extends ActiveRecord
             ->select('MAX(registration_date)')
             ->scalar();
     }
+
+    /**
+     * Группирует документы РЕМД по сотруднику с разбивкой по годам, месяцам и типам документов.
+     *
+     * Метод возвращает структурированные данные о документах сотрудника в виде:
+     * - Годы (ключи массива)
+     *   - Месяцы (с русскими названиями)
+     *     - Типы документов с количеством каждого типа
+     *
+     * @param int $employeeId ID сотрудника для фильтрации документов
+     * @return array Структурированный массив документов в формате:
+     */
+    public static function getGroupedByEmployee($employeeId)
+    {
+        $russianMonths = [
+            1 => 'Январь', 2 => 'Февраль', 3 => 'Март',
+            4 => 'Апрель', 5 => 'Май', 6 => 'Июнь',
+            7 => 'Июль', 8 => 'Август', 9 => 'Сентябрь',
+            10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'
+        ];
+
+        $documents = self::find()
+            ->joinWith('employees')
+            ->where(['employee.id' => $employeeId])
+            ->orderBy('registration_date DESC')
+            ->all();
+
+        $grouped = [];
+
+        foreach ($documents as $document) {
+            $date = new \DateTime($document->registration_date);
+            $year = $date->format('Y');
+            $month = (int)$date->format('n');
+            $monthName = $russianMonths[$month] ?? $date->format('F');
+            $type = $document->type;
+
+            if (!isset($grouped[$year])) {
+                $grouped[$year] = [
+                    'count' => 0,
+                    'months' => []
+                ];
+            }
+            $grouped[$year]['count']++;
+
+            if (!isset($grouped[$year]['months'][$month])) {
+                $grouped[$year]['months'][$month] = [
+                    'name' => $monthName,
+                    'count' => 0,
+                    'types' => []
+                ];
+            }
+            $grouped[$year]['months'][$month]['count']++;
+
+            if (!isset($grouped[$year]['months'][$month]['types'][$type])) {
+                $grouped[$year]['months'][$month]['types'][$type] = 0;
+            }
+            $grouped[$year]['months'][$month]['types'][$type]++;
+        }
+
+        return $grouped;
+    }
 }

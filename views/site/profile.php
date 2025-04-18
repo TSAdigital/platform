@@ -5,6 +5,7 @@
 /** @var QrCodeGenerator $qrCodeGenerator */
 /** @var DocumentEvent $eventDataProvider */
 /** @var Certificate $certificates */
+/** @var array $groupedDocuments */
 
 use app\components\QrCodeGenerator;
 use app\models\Certificate;
@@ -12,6 +13,7 @@ use app\models\DocumentEvent;
 use app\widgets\AvatarWidget;
 use yii\bootstrap5\LinkPager;
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\widgets\ListView;
 
 $this->title = 'Профиль';
@@ -113,36 +115,142 @@ $this->registerJs($script);
         </div>
 
         <div class="col-md-7 col-xl-8">
+
+            <?php if ($groupedDocuments): ?>
+
             <div class="card">
                 <div class="card-header border-bottom">
-                    <h5 class="card-title">Активность</h5>
+                    <h3 class="card-title">Зарегистрированные документы в РЭМД</h3>
                 </div>
-                <div class="card-body h-100">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3 mb-md-0">
+                            <div class="nav flex-column nav-pills" id="yearTabs" role="tablist" aria-orientation="vertical">
+
+                                <?php $firstYear = true; ?>
+                                <?php foreach ($groupedDocuments as $year => $yearData): ?>
+
+                                    <button class="nav-link text-start <?= $firstYear ? 'active' : '' ?>"
+                                            id="year-<?= $year ?>-tab"
+                                            data-bs-toggle="pill"
+                                            data-bs-target="#year-<?= $year ?>"
+                                            type="button"
+                                            role="tab"
+                                            aria-controls="year-<?= $year ?>"
+                                            aria-selected="<?= $firstYear ? 'true' : 'false' ?>">
+                                        <?= $year ?>
+                                    </button>
+
+                                    <?php $firstYear = false; ?>
+                                <?php endforeach; ?>
+
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="tab-content" id="yearTabsContent">
+
+                                <?php $firstYear = true; ?>
+                                <?php foreach ($groupedDocuments as $year => $yearData): ?>
+
+                                    <div class="tab-pane fade <?= $firstYear ? 'show active' : '' ?>"
+                                         id="year-<?= $year ?>"
+                                         role="tabpanel"
+                                         aria-labelledby="year-<?= $year ?>-tab">
+
+                                        <!-- Аккордеон месяцев -->
+                                        <div class="accordion" id="monthAccordion-<?= $year ?>">
+
+                                            <?php $firstMonth = true; ?>
+                                            <?php foreach ($yearData['months'] as $month => $monthData): ?>
+
+                                                <div class="accordion-item mb-2">
+                                                    <h2 class="accordion-header" id="month-heading-<?= $year ?>-<?= $month ?>">
+                                                        <button class="accordion-button <?= !$firstMonth ? 'collapsed' : '' ?>"
+                                                                type="button"
+                                                                data-bs-toggle="collapse"
+                                                                data-bs-target="#month-collapse-<?= $year ?>-<?= $month ?>"
+                                                                aria-expanded="<?= $firstMonth ? 'true' : 'false' ?>">
+                                                            <?= $monthData['name'] ?>
+                                                            <span class="badge bg-primary ms-2"><?= $monthData['count'] ?></span>
+                                                        </button>
+                                                    </h2>
+
+                                                    <div id="month-collapse-<?= $year ?>-<?= $month ?>"
+                                                         class="accordion-collapse collapse <?= $firstMonth ? 'show' : '' ?>"
+                                                         aria-labelledby="month-heading-<?= $year ?>-<?= $month ?>"
+                                                         data-bs-parent="#monthAccordion-<?= $year ?>">
+                                                        <div class="accordion-body">
+
+                                                            <?php
+                                                            $typesCount = count($monthData['types']);
+                                                            $currentIndex = 0;
+                                                            foreach ($monthData['types'] as $type => $count):
+                                                                $currentIndex++;
+                                                                $marginClass = ($currentIndex < $typesCount) ? 'mb-2' : '';
+                                                                ?>
+
+                                                                <div class="d-flex justify-content-between align-items-center <?= $marginClass ?>">
+                                                                    <span><?= Html::encode($type) ?></span>
+                                                                    <span class="fw-bold me-1"><?= $count ?></span>
+                                                                </div>
+
+                                                            <?php endforeach; ?>
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <?php $firstMonth = false; ?>
+                                            <?php endforeach; ?>
+
+                                        </div>
+                                    </div>
+
+                                    <?php $firstYear = false; ?>
+                                <?php endforeach; ?>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <?php endif; ?>
+
+            <div class="card">
+                <div class="card-header border-bottom">
+                    <h5 class="card-title"><i class="align-middle me-2 fas fa-fw fa-bell"></i>Активность</h5>
+                </div>
+                <div class="card-body p-0">
 
                     <?= ListView::widget([
                         'dataProvider' => $eventDataProvider,
-                        'emptyText' => 'На данный момент нет активности. Пожалуйста, проверяйте обновления позже.',
+                        'emptyText' => '<div class="text-center p-4 text-muted">
+                              <svg data-feather="info" class="mb-2 text-primary" style="width: 48px; height: 48px;"></svg>
+                              <p class="mb-0">На данный момент нет активности</p>
+                              <small>Пожалуйста, проверяйте обновления позже</small>
+                           </div>',
                         'itemView' => function ($model, $key, $index, $widget) {
-                            $currentPage = $widget->dataProvider->pagination->page;
-                            $pageSize = $widget->dataProvider->pagination->pageSize;
-                            $rowNumber = $index + 1 + ($currentPage * $pageSize);
                             $isLast = ($index === $widget->dataProvider->getCount() - 1);
-
                             return $this->render('_event_list', [
                                 'model' => $model,
-                                'index' => $rowNumber,
                                 'isLast' => $isLast
                             ]);
                         },
-                        'layout' => "{items}",
+                        'layout' => '<div class="list-group list-group-flush">{items}</div>',
+                        'itemOptions' => ['class' => 'list-group-item list-group-custom'],
                     ]) ?>
 
                     <?php if ($eventDataProvider->pagination->getPageCount() > 1) : ?>
 
-                        <?= LinkPager::widget([
-                            'pagination' => $eventDataProvider->pagination,
-                            'options' => ['class' => 'mt-3'],
-                        ]) ?>
+                        <div class="card-footer border-top">
+
+                            <?= LinkPager::widget([
+                                'pagination' => $eventDataProvider->pagination,
+                                'options' => ['class' => 'pagination justify-content-center mb-0'],
+                            ]) ?>
+
+                        </div>
 
                     <?php endif; ?>
 
