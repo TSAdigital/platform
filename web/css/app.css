@@ -15613,7 +15613,7 @@ div.required label:after {
 }
 
 .login-form div.required label:after {
-    content: none; /* РЈР±РёСЂР°РµС‚ Р·РІРµР·РґРѕС‡РєСѓ */
+    content: none;
 }
 
 .select2-container--krajee-bs5 .select2-selection--single {
@@ -15762,12 +15762,15 @@ select.is-invalid + .select2-container--krajee-bs5 .select2-selection__rendered 
     }
 }
 
+.list-group-custom {
+    background-color: white !important;
+}
+
 *:focus {
     outline: none !important;
     box-shadow: none !important;
 }
 
-/* Для современных браузеров (более аккуратный способ) */
 *:focus-visible {
     outline: none !important;
     box-shadow: none !important;
