@@ -13,7 +13,6 @@ use app\models\DocumentEvent;
 use app\widgets\AvatarWidget;
 use yii\bootstrap5\LinkPager;
 use yii\helpers\Html;
-use yii\helpers\Url;
 use yii\widgets\ListView;
 
 $this->title = 'Профиль';
@@ -248,6 +247,7 @@ $this->registerJs($script);
                             <?= LinkPager::widget([
                                 'pagination' => $eventDataProvider->pagination,
                                 'options' => ['class' => 'pagination justify-content-center mb-0'],
+                                'maxButtonCount' => 6,
                             ]) ?>
 
                         </div>

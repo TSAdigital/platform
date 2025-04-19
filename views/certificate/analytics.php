@@ -107,6 +107,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     <?= LinkPager::widget([
                         'pagination' => $certificatesDataProvider->pagination,
                         'options' => ['class' => 'mt-3'],
+                        'maxButtonCount' => 6,
                     ]) ?>
 
                 <?php endif; ?>

@@ -105,6 +105,9 @@ $this->registerJs($script);
                     'format' => 'raw',
                 ],
             ],
+            'pager' => [
+                'maxButtonCount' => 6,
+            ],
         ]); ?>
 
         <?php Pjax::end(); ?>

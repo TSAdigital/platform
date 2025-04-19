@@ -220,6 +220,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 <?= LinkPager::widget([
                     'pagination' => $pages,
                     'options' => ['class' => 'mt-3'],
+                    'maxButtonCount' => 6,
                 ]) ?>
 
             <?php endif; ?>
