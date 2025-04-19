@@ -119,7 +119,7 @@ $this->registerJs($script);
 
             <div class="card">
                 <div class="card-header border-bottom">
-                    <h3 class="card-title">Зарегистрированные документы в РЭМД</h3>
+                    <h5 class="card-title">Зарегистрированные документы в РЭМД</h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -218,7 +218,7 @@ $this->registerJs($script);
 
             <div class="card">
                 <div class="card-header border-bottom">
-                    <h5 class="card-title"><i class="align-middle me-2 fas fa-fw fa-bell"></i>Активность</h5>
+                    <h5 class="card-title">Активность</h5>
                 </div>
                 <div class="card-body p-0">
 
