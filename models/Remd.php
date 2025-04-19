@@ -101,15 +101,15 @@ class Remd extends ActiveRecord
     }
 
     /**
-     * Группирует документы РЕМД по сотруднику с разбивкой по годам, месяцам и типам документов.
+     * Возвращает документы РЕМД сотрудника, сгруппированные по годам, месяцам и типам документов.
      *
-     * Метод возвращает структурированные данные о документах сотрудника в виде:
-     * - Годы (ключи массива)
-     *   - Месяцы (с русскими названиями)
-     *     - Типы документов с количеством каждого типа
+     * Метод формирует иерархическую структуру данных, учитывая настройки фильтрации документов.
+     * Если в настройках системы включена фильтрация документов, будут возвращены только разрешенные типы документов.
      *
-     * @param int $employeeId ID сотрудника для фильтрации документов
-     * @return array Структурированный массив документов в формате:
+     * @param int $employeeId Идентификатор сотрудника
+     * @return array Многомерный массив с группировкой по годам, месяцам и типам документов.
+     *               Возвращает пустой массив, если документов не найдено.
+     * @throws \Exception При проблемах с обработкой дат документов
      */
     public static function getGroupedByEmployee($employeeId)
     {
@@ -120,11 +120,17 @@ class Remd extends ActiveRecord
             10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'
         ];
 
-        $documents = self::find()
+        $query = self::find()
             ->joinWith('employees')
             ->where(['employee.id' => $employeeId])
-            ->orderBy('registration_date DESC')
-            ->all();
+            ->orderBy('registration_date DESC');
+
+        if (RemdBaseSetting::getSettings()->lk_document_filter_enabled &&
+            ($types = RemdTypeSetting::getSettings()->getEnabledDocTypesArray())) {
+            $query->andWhere(['type' => $types]);
+        }
+
+        $documents = $query->all();
 
         $grouped = [];
 
