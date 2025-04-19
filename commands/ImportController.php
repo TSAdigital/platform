@@ -196,7 +196,7 @@ class ImportController extends Controller
         );
         $user->auth_key = Yii::$app->security->generateRandomString();
         $user->password_hash = Yii::$app->security->generatePasswordHash($userData['password']);
-        $user->email = $this->generateEmail($userData['email'], substr($userData['firstName'], 0, 2), $userData['lastName']);
+        $user->email = $this->generateEmail($userData['email'], substr($userData['firstName'], 0, 2) . substr($userData['middleName'], 0, 2), $userData['lastName']);
         $user->unique_id = Yii::$app->security->generateRandomString(12);
         $user->status = User::STATUS_ACTIVE;
         $user->role = 'user';
