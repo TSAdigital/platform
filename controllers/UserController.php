@@ -7,10 +7,12 @@ use app\models\UserSearch;
 use Yii;
 use yii\base\Exception;
 use yii\filters\AccessControl;
+use yii\helpers\FileHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\web\Response;
+use yii\web\UploadedFile;
 
 /**
  * UserController implements the CRUD actions for User model.
@@ -69,6 +71,11 @@ class UserController extends Controller
                             'allow' => true,
                             'actions' => ['change-password'],
                             'roles' => ['changePasswordUser'],
+                        ],
+                        [
+                            'allow' => true,
+                            'actions' => ['upload-avatar'],
+                            'roles' => ['@'],
                         ],
                     ],
                 ],
@@ -256,5 +263,55 @@ class UserController extends Controller
         return $this->render('change-password', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * Загрузка аватара пользователя
+     * @return array
+     * @throws \yii\base\Exception
+     */
+    public function actionUploadAvatar()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        if (!Yii::$app->request->isPost || Yii::$app->user->isGuest) {
+            return ['success' => false, 'error' => 'Некорректный запрос'];
+        }
+
+        $file = UploadedFile::getInstanceByName('avatar');
+        if (!$file) {
+            return ['success' => false, 'error' => 'Файл не был загружен'];
+        }
+
+        try {
+            $user = Yii::$app->user->identity;
+            $uploadPath = Yii::getAlias('@webroot/uploads/avatars');
+
+            if (!file_exists($uploadPath)) {
+                FileHelper::createDirectory($uploadPath, 0755, true);
+            }
+
+            $fileName = $user->id . '_' . time() . '.jpg';
+            $filePath = $uploadPath . '/' . $fileName;
+
+            if ($file->saveAs($filePath)) {
+                if ($user->avatar && file_exists($uploadPath . '/' . $user->avatar)) {
+                    unlink($uploadPath . '/' . $user->avatar);
+                }
+
+                $user->avatar = $fileName;
+                if ($user->save(false, ['avatar'])) {
+                    return [
+                        'success' => true,
+                        'avatarUrl' => '/uploads/avatars/' . $fileName,
+                        'userId' => $user->id
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            Yii::error('Ошибка загрузки аватара: ' . $e->getMessage(), 'user');
+        }
+
+        return ['success' => false, 'error' => 'Не удалось сохранить аватар'];
     }
 }

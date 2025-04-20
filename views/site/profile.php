@@ -13,6 +13,7 @@ use app\models\DocumentEvent;
 use app\widgets\AvatarWidget;
 use yii\bootstrap5\LinkPager;
 use yii\helpers\Html;
+use yii\web\JqueryAsset;
 use yii\widgets\ListView;
 
 $this->title = 'Профиль';
@@ -28,6 +29,10 @@ $script = <<< JS
     });
 JS;
 $this->registerJs($script);
+$this->registerCssFile(Yii::getAlias('@web/css/cropper.min.css'));
+$this->registerJsFile(Yii::getAlias('@web/js/cropper.min.js'), [
+    'depends' => [JqueryAsset::class]
+]);
 ?>
 
 <div class="site-profile">
@@ -39,11 +44,16 @@ $this->registerJs($script);
                 </div>
                 <div class="card-body text-center">
 
-                    <?= AvatarWidget::widget([
-                        'name' => Html::encode(Yii::$app->user->identity->getEmployeeFullName()),
-                        'size' => 128,
-                        'imgClass' => 'img-fluid rounded-circle mb-2',
-                    ]) ?>
+                    <div id="avatar-container" style="cursor: pointer;">
+                        <?= AvatarWidget::widget([
+                            'name' => Html::encode(Yii::$app->user->identity->getEmployeeFullName()),
+                            'avatarUrl' => Yii::$app->user->identity->avatar ? '/uploads/avatars/' . Yii::$app->user->identity->avatar : null,
+                            'size' => 128,
+                            'imgClass' => 'img-fluid rounded-circle mb-2',
+                            'userId' => Yii::$app->user->id
+                        ]) ?>
+                        <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
+                    </div>
 
                     <?php if (isset(Yii::$app->user->identity->username)) : ?>
 
@@ -259,3 +269,111 @@ $this->registerJs($script);
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="avatar-modal" role="dialog" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="accessLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="accessLabel">Предоставить доступ</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" tabindex="-1" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="img-container">
+                    <img id="image-to-crop" src="" alt="" style="max-width: 100%;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" tabindex="-1" aria-label="Close">Отмена</button>
+                <button type="button" class="btn btn-primary" id="crop-avatar">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+$js = <<<JS
+$(document).ready(function() {
+    var avatarContainer = $('#avatar-container');
+    var avatarUpload = $('#avatar-upload');
+    var avatarModal = $('#avatar-modal');
+    var imageToCrop = $('#image-to-crop');
+    var cropButton = $('#crop-avatar');
+    var cropper;
+    
+    avatarContainer.on('click', function(e) {
+        if (e.target !== avatarUpload[0]) {
+            avatarUpload.trigger('click');
+        }
+    });
+    
+    avatarUpload.on('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+                
+                imageToCrop.attr('src', e.target.result);
+                avatarModal.modal('show');
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+    
+    avatarModal.on('shown.bs.modal', function() {
+        cropper = new Cropper(imageToCrop[0], {
+            aspectRatio: 1,
+            viewMode: 1,
+            autoCropArea: 0.8,
+            responsive: true,
+            guides: false
+        });
+    }).on('hidden.bs.modal', function() {
+        avatarUpload.val('');
+        
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+    });
+    
+    cropButton.on('click', function() {
+        if (!cropper) return;
+        
+        cropper.getCroppedCanvas({
+            width: 256,
+            height: 256,
+            fillColor: '#fff'
+        }).toBlob(function(blob) {
+            var formData = new FormData();
+            formData.append('avatar', blob, 'avatar.jpg');
+            
+            $.ajax({
+                url: '/user/upload-avatar',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        $('img[data-user-id="' + response.userId + '"]').attr('src', response.avatarUrl + '?t=' + Date.now());
+
+                        avatarModal.modal('hide');
+                    } else {
+                        alert(response.error || 'Ошибка загрузки');
+                    }
+                },
+                error: function() {
+                    alert('Ошибка соединения');
+                }
+            });
+        }, 'image/jpeg', 0.9);
+    });
+});
+JS;
+$this->registerJs($js);
+?>
+
+

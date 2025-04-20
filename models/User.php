@@ -17,6 +17,7 @@ use yii\web\IdentityInterface;
  * @property string $username
  * @property string $password_hash
  * @property string $email
+ * @property string $avatar
  * @property string $password
  * @property string $auth_key
  * @property string $unique_id
@@ -85,6 +86,8 @@ class User extends ActiveRecord implements IdentityInterface
             ['email', 'unique'],
             ['email', 'trim'],
             ['email', 'required'],
+
+            ['avatar', 'string', 'max' => 255],
 
             ['role', 'string'],
             ['role', 'required'],

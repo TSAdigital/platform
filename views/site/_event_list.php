@@ -12,8 +12,9 @@ use yii\bootstrap5\Html;
     <div class="flex-shrink-0 me-3">
         <?= AvatarWidget::widget([
             'name' => Html::encode($model->user->getEmployeeFullName()),
+            'avatarUrl' => $model->user->avatar ? '/uploads/avatars/' . $model->user->avatar : null,
+            'userId' => $model->user->id,
             'size' => 42,
-            'imgClass' => 'rounded-circle shadow-sm',
         ]) ?>
     </div>
 

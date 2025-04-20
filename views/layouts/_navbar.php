@@ -13,13 +13,13 @@ use yii\bootstrap5\Html;
         <ul class="navbar-nav navbar-align">
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-
-                    <?= AvatarWidget::widget(['name' => Html::encode(Yii::$app->user->identity->getEmployeeFullName())]) ?>
-
+                    <?= AvatarWidget::widget([
+                        'name' => Html::encode(Yii::$app->user->identity->getEmployeeFullName()),
+                        'avatarUrl' => Yii::$app->user->identity->avatar ? '/uploads/avatars/' . Yii::$app->user->identity->avatar : null,
+                        'userId' => Yii::$app->user->id,
+                    ]) ?>
                     <span class="text-dark">
-
                         <?= Html::encode(Yii::$app->user->identity->getEmployeeFullName()) ?>
-
                     </span>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
