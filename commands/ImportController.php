@@ -106,7 +106,7 @@ class ImportController extends Controller
 
             if ($this->importedCount > 0) {
                 $this->saveUsersToFile($users);
-                $this->stdout("Файл с учетными данными создан: @app/web/export/users.txt\n", BaseConsole::FG_YELLOW);
+                $this->stdout("Файл с учетными данными создан: @app/web/export/users_*.txt\n", BaseConsole::FG_YELLOW);
             }
 
             $this->stdout("\nИмпорт завершен!\n", BaseConsole::FG_GREEN);
@@ -249,8 +249,8 @@ class ImportController extends Controller
         if (!file_exists($dirPath)) {
             mkdir($dirPath, 0755, true);
         }
-
-        $filePath = "{$dirPath}/users.txt";
+        $uniqid = uniqid();
+        $filePath = "{$dirPath}/users_{$uniqid}.txt";
         file_put_contents($filePath, $content);
     }
 
