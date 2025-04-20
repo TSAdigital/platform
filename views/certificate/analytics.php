@@ -84,7 +84,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
                 <?= ListView::widget([
                     'dataProvider' => $certificatesDataProvider,
-                    'emptyText' => '<div class="py-2 border-top">Доступ к документу пока никому не предоставлен.</div>',
+                    'emptyText' => '<div class="pt-2 border-top">Нет данных для отображения.</div>',
                     'itemView' => function ($model, $key, $index, $widget) {
                         $currentPage = $widget->dataProvider->pagination->page;
                         $pageSize = $widget->dataProvider->pagination->pageSize;
