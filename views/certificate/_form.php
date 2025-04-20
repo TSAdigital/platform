@@ -1,5 +1,6 @@
 <?php
 
+use kartik\date\DatePicker;
 use kartik\select2\Select2;
 use yii\helpers\Html;
 use yii\bootstrap5\ActiveForm;
@@ -35,19 +36,31 @@ use yii\widgets\MaskedInput;
 
     <?= $form->field($model, 'serial_number')->textInput(['maxlength' => true]) ?>
 
-    <?= $form->field($model, 'valid_from')->widget(MaskedInput::class,[
-        'mask' =>  '99.99.9999',
-        'clientOptions' => [
-            'onincomplete' => new JsExpression('function() { this.value = null; }'),
+    <?= $form->field($model, 'valid_from')->widget(DatePicker::class, [
+        'options' => ['placeholder' => 'Укажите дату...'],
+        'value' => 'dd.mm.yyyy',
+        'pluginOptions' => [
+            'format' => 'dd.mm.yyyy',
+            'autoclose' => true,
+            'todayBtn' => true,
+            'todayHighlight' => true,
         ],
-    ]); ?>
+        'pickerIcon' => '<svg data-feather="calendar"></svg>',
+        'removeIcon' => '<svg data-feather="x"></svg>',
+    ]) ?>
 
-    <?= $form->field($model, 'valid_to')->widget(MaskedInput::class,[
-        'mask' =>  '99.99.9999',
-        'clientOptions' => [
-            'onincomplete' => new JsExpression('function() { this.value = null; }'),
+    <?= $form->field($model, 'valid_to')->widget(DatePicker::class, [
+        'options' => ['placeholder' => 'Укажите дату...'],
+        'value' => 'dd.mm.yyyy',
+        'pluginOptions' => [
+            'format' => 'dd.mm.yyyy',
+            'autoclose' => true,
+            'todayBtn' => true,
+            'todayHighlight' => true,
         ],
-    ]); ?>
+        'pickerIcon' => '<svg data-feather="calendar"></svg>',
+        'removeIcon' => '<svg data-feather="x"></svg>',
+    ]) ?>
 
     <?= $form->field($model, 'issuer_id')->widget(Select2::class,
         [

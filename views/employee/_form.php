@@ -1,5 +1,6 @@
 <?php
 
+use kartik\date\DatePicker;
 use kartik\select2\Select2;
 use yii\bootstrap5\ActiveForm;
 use yii\helpers\Html;
@@ -22,12 +23,18 @@ use yii\widgets\MaskedInput;
 
     <?= $form->field($model, 'middle_name')->textInput(['maxlength' => true]) ?>
 
-    <?= $form->field($model, 'birth_date')->widget(MaskedInput::class,[
-        'mask' =>  '99.99.9999',
-        'clientOptions' => [
-            'onincomplete' => new JsExpression('function() { this.value = null; }'),
+    <?= $form->field($model, 'birth_date')->widget(DatePicker::class, [
+        'options' => ['placeholder' => 'Укажите дату...'],
+        'value' => 'dd.mm.yyyy',
+        'pluginOptions' => [
+            'format' => 'dd.mm.yyyy',
+            'autoclose' => true,
+            'todayBtn' => true,
+            'todayHighlight' => true,
         ],
-    ]); ?>
+        'pickerIcon' => '<svg data-feather="calendar"></svg>',
+        'removeIcon' => '<svg data-feather="x"></svg>',
+    ]) ?>
 
     <?= $form->field($model, 'user_id')->widget(Select2::class, [
     'data' => $model->getCurrentUserList(),
