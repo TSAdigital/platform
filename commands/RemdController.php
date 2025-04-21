@@ -347,14 +347,14 @@ class RemdController extends Controller
     }
 
     /**
-     * Обрабатывает тип документа, удаляет "(CDA)" если есть
+     * Обрабатывает тип документа, удаляя все скобки и текст после них
      *
      * @param string $type Тип документа
      * @return string Очищенный тип документа
      */
     protected function processDocumentType($type)
     {
-        $pos = strpos($type, '(CDA)');
+        $pos = strpos($type, '(');
         if ($pos !== false) {
             $type = substr($type, 0, $pos);
         }
