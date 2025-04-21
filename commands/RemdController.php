@@ -347,17 +347,16 @@ class RemdController extends Controller
     }
 
     /**
-     * Обрабатывает тип документа, удаляя все скобки и текст после них
+     * Обрабатывает тип документа, удаляя указанные форматы в скобках и весь текст после них
      *
-     * @param string $type Тип документа
-     * @return string Очищенный тип документа
+     * @param string $type Тип документа, который может содержать (CDA) или (PDF/A-1)
+     * @return string Тип документа без указанных форматов и последующего текста
      */
     protected function processDocumentType($type)
     {
-        $pos = strpos($type, '(');
-        if ($pos !== false) {
-            $type = substr($type, 0, $pos);
-        }
+        $pattern = '/\s*(?:\(CDA\)|\(PDF\/A-1\)).*$/i';
+        $type = preg_replace($pattern, '', $type);
+
         return trim($type);
     }
 
