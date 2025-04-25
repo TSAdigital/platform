@@ -1,25 +1,24 @@
 <?php
 
 /** @var yii\web\View $this */
-/** @var integer $totalRemds */
-/** @var array $remdsByType */
-/** @var object $pages */
-/** @var integer $totalTypesCount */
-/** @var integer $totalEmployeesWithRemds */
-/** @var array $enabledDocTypes */
-/** @var array $allDocTypes */
-/** @var array $positionList */
-/** @var string $docType */
-/** @var string $selectedEmployeeName */
-/** @var bool $allDocuments */
-/** @var string $dateFrom */
-/** @var string $dateTo */
-/** @var string $lastRegistrationDate */
+/* @var $this yii\web\View */
+/* @var $data array */
+/* @var $dataProvider yii\data\ActiveDataProvider */
+/* @var int $totalDocuments */
+/* @var array $uniqueDocumentTypes */
+/* @var int $uniqueEmployeesWithDocuments */
+/* @var string $latestDocumentDate */
+/* @var string $selectedEmployeeName */
+/* @var array $positionList */
+/* @var bool $enabledDocTypes */
+/* @var string $dateFrom */
+/* @var string $dateTo */
 
 use kartik\date\DatePicker;
 use kartik\select2\Select2;
 use yii\bootstrap5\ActiveForm;
 use yii\bootstrap5\LinkPager;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\JsExpression;
@@ -31,26 +30,23 @@ $this->params['breadcrumbs'][] = $this->title;
 <div class="d-flex flex-row gap-1 mb-3">
 
     <?php if (Yii::$app->user->can('makeRemdSetting')) : ?>
-        <div class="btn-group">
-            <?= Html::a('Настройки', '#', ['class' => 'btn btn-secondary dropdown-toggle', 'role' => 'button', 'id' => 'dropdownMenuLink', 'data-bs-toggle' => 'dropdown', 'aria-expanded' => false]) ?>
 
-            <ul class="dropdown-menu" aria-labelledby="dropdownMenuLink">
-                <?= Html::a('Основные', ['remd/base-setting'], ['class' => 'dropdown-item']) ?>
-                <?= Html::a('Типы документов', ['remd/type-setting'], ['class' => 'dropdown-item']) ?>
-            </ul>
-        </div>
+    <div class="btn-group">
+        <?= Html::a('Настройки', '#', ['class' => 'btn btn-secondary dropdown-toggle', 'role' => 'button', 'id' => 'dropdownMenuLink', 'data-bs-toggle' => 'dropdown', 'aria-expanded' => false]) ?>
+
+        <ul class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+            <?= Html::a('Основные', ['remd/base-setting'], ['class' => 'dropdown-item']) ?>
+            <?= Html::a('Виды документов', ['remd/type-setting'], ['class' => 'dropdown-item']) ?>
+            <?= Html::a('Планирование', ['remd/plan'], ['class' => 'dropdown-item']) ?>
+        </ul>
+    </div>
+
     <?php endif; ?>
 
-    <?= Html::button('Фильтр', ['class' => 'btn btn-primary', 'data-bs-toggle' => 'offcanvas', 'data-bs-target' => '#staticBackdrop', 'aria-controls' => 'staticBackdrop']) ?>
+    <?= Html::a('Аналитика', ['analytics'], ['class' => 'btn btn-primary']) ?>
 
-</div>
+    <?= Html::button('Фильтр', ['class' => 'btn btn-dark', 'data-bs-toggle' => 'offcanvas', 'data-bs-target' => '#staticBackdrop', 'aria-controls' => 'staticBackdrop']) ?>
 
-<div class="d-block d-md-none">
-    <div class="card">
-        <div class="card-body">
-            Дата с <?= date('m.d.Y', strtotime($dateFrom)) ?> по <?= date('m.d.Y', strtotime($dateTo)) ?>
-        </div>
-    </div>
 </div>
 
 <div class="row">
@@ -68,7 +64,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                     </div>
                 </div>
-                <h1 class="mt-1 mb-0"><?= $totalRemds ?></h1>
+                <h1 class="mt-1 mb-0"><?= $totalDocuments ?></h1>
             </div>
         </div>
     </div>
@@ -77,7 +73,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <div class="card-body">
                 <div class="row">
                     <div class="col mt-0">
-                        <h5 class="card-title">Всего типов документов</h5>
+                        <h5 class="card-title">Всего видов документов</h5>
                     </div>
 
                     <div class="col-auto">
@@ -86,7 +82,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                     </div>
                 </div>
-                <h1 class="mt-1 mb-0"><?= $totalTypesCount ?></h1>
+                <h1 class="mt-1 mb-0"><?= count($uniqueDocumentTypes) ?></h1>
             </div>
         </div>
     </div>
@@ -104,7 +100,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                     </div>
                 </div>
-                <h1 class="mt-1 mb-0"><?= $totalEmployeesWithRemds ?></h1>
+                <h1 class="mt-1 mb-0"><?= $uniqueEmployeesWithDocuments ?></h1>
             </div>
         </div>
     </div>
@@ -122,110 +118,106 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                     </div>
                 </div>
-                <h1 class="mt-1 mb-0"><?= $lastRegistrationDate ? date('d.m.Y', strtotime($lastRegistrationDate)) : ' - ' ?></h1>
+                <h1 class="mt-1 mb-0"><?= $latestDocumentDate ? date('d.m.Y', strtotime($latestDocumentDate)) : ' - ' ?></h1>
             </div>
         </div>
     </div>
 </div>
 
-<?php if ($remdsByType) : ?>
+<?php if ($uniqueDocumentTypes) : ?>
 
-<div class="card">
-    <div class="card-body">
+    <div class="card">
+        <div class="card-body">
+            <h3>Распределение документов по видам:</h3>
+            <div>
 
-        <h3>Распределение документов по типам:</h3>
-        <div>
-            <?php foreach ($remdsByType as $type): ?>
-                <p class="mb-2 mb-md-0"><?= $type['type'] ?>: <?= $type['count'] ?></p>
-            <?php endforeach; ?>
+                <?php foreach ($uniqueDocumentTypes as $type): ?>
+
+                <p class="mb-2 mb-md-0"><?= htmlspecialchars($type['type']) ?>: <?= $type['count'] ?></p>
+
+                <?php endforeach; ?>
+
+            </div>
         </div>
-
     </div>
-</div>
 
 <?php endif; ?>
 
+
+
 <div class="card">
     <div class="card-body">
 
-        <?php if (empty($employeesWithRemds)): ?>
+        <?php if (empty($data)): ?>
 
-            <p class="mb-0">Нет сотрудников с зарегистрированными документами</p>
+        <p class="mb-0">Нет сотрудников с зарегистрированными документами</p>
 
         <?php else: ?>
 
-            <div class="row text-bold">
-                <div class="col-auto text-center py-2 fixed-column justify-content-center align-self-center fw-bold">#</div>
-                <div class="col py-2 fw-bold justify-content-center align-self-center">Сотрудник</div>
-                <div class="col-md-3 d-none d-md-block py-2 fw-bold justify-content-center align-self-center">Должность</div>
-                <div class="col-md-3 d-none d-md-block py-2 fw-bold text-center justify-content-center align-self-center">Всего документов</div>
-                <div class="col-auto text-center py-2 fixed-column"></div>
-            </div>
+        <div class="row text-bold">
+            <div class="col-auto text-center py-2 fixed-column justify-content-center align-self-center fw-bold">#</div>
+            <div class="col py-2 fw-bold justify-content-center align-self-center">Сотрудник</div>
+            <div class="col-md-3 d-none d-md-block py-2 fw-bold justify-content-center align-self-center">Должность</div>
+            <div class="col-md-3 d-none d-md-block py-2 fw-bold text-center justify-content-center align-self-center">Всего документов</div>
+            <div class="col-auto text-center py-2 fixed-column"></div>
+        </div>
 
-            <?php
-            $currentPage = $pages->page;
-            $pageSize = $pages->pageSize;
-            $startNumber = ($currentPage * $pageSize) + 1;
+        <?php
+        $currentPage = $dataProvider->pagination->page;
+        $pageSize = $dataProvider->pagination->pageSize;
+        $startNumber = ($currentPage * $pageSize) + 1;
+        ?>
 
-            foreach ($employeesWithRemds as $index => $employee):
-                $rowNumber = $startNumber + $index;
-                $employeeRemds = $employee->remds;
-                $employeeRemdsCount = count($employeeRemds);
-                $employeeRemdsByType = [];
+        <?php foreach ($data as $index => $item): ?>
 
-                foreach ($employeeRemds as $remd) {
-                    if (!isset($employeeRemdsByType[$remd->type])) {
-                        $employeeRemdsByType[$remd->type] = 0;
-                    }
+        <?php $rowNumber = $startNumber + $index; ?>
 
-                    $employeeRemdsByType[$remd->type]++;
-                }
-            ?>
-
-            <div class="employee-row" data-id="<?= $employee->id ?>">
-                <div class="row border-top">
-                    <div class="col-auto text-center py-2 justify-content-center align-self-center fixed-column"><?= $rowNumber ?></div>
-                    <div class="col py-2 justify-content-center align-self-center"><?= $employee->getFullName() ?></div>
-                    <div class="col-md-3 d-none d-md-block py-2 justify-content-center align-self-center"><?= $employee->getPositionName() ?></div>
-                    <div class="col-md-3 d-none d-md-block py-2 text-center justify-content-center align-self-center"><?= $employeeRemdsCount ?></div>
-                    <div class="col-auto text-center py-2 fixed-column">
-                        <a href="javascript:void(0)" class="toggle-details text-primary text-decoration-none">
-                            <?= Html::tag('svg', '', [
-                                'data-feather' => 'chevron-down',
-                                'class' => 'toggle-icon',
-                                'data-state' => 'closed',
-                                'width' => '20',
-                                'height' => '20',
-                                'stroke-width' => '2'
-                            ]) ?>
-                        </a>
-                    </div>
-                </div>
-                <div class="details-row px-2 pb-2" style="display: none;">
-
-                    <?php if ($employeeRemdsCount > 0): ?>
-                        <?php foreach ($employeeRemdsByType as $type => $count): ?>
-                            <?php $isLast = ($type === array_key_last($employeeRemdsByType)); ?>
-                            <p class="<?= $isLast ? 'mb-0' : 'mb-2 mb-md-1' ?>"><?= $type ?>: <?= $count ?></p>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-
+        <div class="employee-row" data-id="<?= $item['id'] ?>">
+            <div class="row border-top">
+                <div class="col-auto text-center py-2 justify-content-center align-self-center fixed-column"><?= $rowNumber ?></div>
+                <div class="col py-2 justify-content-center align-self-center"><?= htmlspecialchars($item['full_name']) ?></div>
+                <div class="col-md-3 d-none d-md-block py-2 justify-content-center align-self-center"><?= htmlspecialchars($item['position']) ?></div>
+                <div class="col-md-3 d-none d-md-block py-2 text-center justify-content-center align-self-center"><?= $item['total_documents'] ?></div>
+                <div class="col-auto text-center py-2 fixed-column">
+                    <a href="javascript:void(0)" class="toggle-details text-primary text-decoration-none">
+                        <?= Html::tag('svg', '', [
+                            'data-feather' => 'chevron-down',
+                            'class' => 'toggle-icon',
+                            'data-state' => 'closed',
+                            'width' => '20',
+                            'height' => '20',
+                            'stroke-width' => '2'
+                        ]) ?>
+                    </a>
                 </div>
             </div>
+            <div class="details-row px-2 pb-2" style="display: none;">
+
+            <?php foreach ($item['document_types'] as $type): ?>
+            <?php $isLast = ($type === array_key_last($item['document_types'])); ?>
+
+                <p class="<?= $isLast ? 'mb-0' : 'mb-2 mb-md-1' ?>"><?= htmlspecialchars($type['type']) ?>: <?= $type['count'] ?></p>
 
             <?php endforeach; ?>
 
-            <?php if ($pages->pageSize < $pages->totalCount) : ?>
+            </div>
+        </div>
 
-                <?= LinkPager::widget([
-                    'pagination' => $pages,
-                    'options' => ['class' => 'mt-3'],
-                    'maxButtonCount' => 6,
-                ]) ?>
+        <?php endforeach; ?>
 
-            <?php endif; ?>
+
+        <?php if ($dataProvider->pagination->pageSize < $dataProvider->pagination->totalCount) : ?>
+
+            <?= LinkPager::widget([
+                'pagination' => $dataProvider->pagination,
+                'options' => ['class' => 'mt-3'],
+                'maxButtonCount' => 6,
+            ]) ?>
 
         <?php endif; ?>
+
+        <?php endif; ?>
+
     </div>
 </div>
 
@@ -282,14 +274,14 @@ $this->params['breadcrumbs'][] = $this->title;
         </div>
 
         <div class="form-group mt-3">
-            <label class="form-label">Тип документа</label>
+            <label class="form-label">Вид документа</label>
             <?=
             Select2::widget([
-                'name' => 'doc_type',
-                'value' => Yii::$app->request->get('doc_type'),
-                'data' => array_combine($allDocTypes, $allDocTypes),
+                'name' => 'document_type',
+                'value' => Yii::$app->request->get('document_type'),
+                'data' => ArrayHelper::map($uniqueDocumentTypes, 'type', 'type'),
                 'options' => [
-                    'placeholder' => 'Выберите тип документа...',
+                    'placeholder' => 'Выберите вид документа...',
                     'multiple' => false
                 ],
                 'pluginOptions' => [
@@ -309,9 +301,6 @@ $this->params['breadcrumbs'][] = $this->title;
                 'options' => [
                     'placeholder' => 'Введите ФИО сотрудника...',
                     'multiple' => false,
-                    'data' => [
-                        'enabled-doc-types' => !$allDocuments ? $enabledDocTypes : null,
-                    ],
                 ],
                 'pluginOptions' => [
                     'allowClear' => true,
@@ -354,16 +343,16 @@ $this->params['breadcrumbs'][] = $this->title;
 
         <?php if ($enabledDocTypes): ?>
 
-        <div class="form-group highlight-addon field-all-documents mt-3">
-            <div class="custom-control custom-switch">
-                <?= Html::checkbox('all_documents', (Yii::$app->request->get('all_documents') == '1'), [
-                    'id' => 'all-documents',
-                    'class' => 'custom-control-input',
-                    'value' => 1
-                ]) ?>
-                <label class="has-star custom-control-label" for="all-documents">Отображать все виды документов</label>
+            <div class="form-group highlight-addon field-all-documents mt-3">
+                <div class="custom-control custom-switch">
+                    <?= Html::checkbox('all_documents', (Yii::$app->request->get('all_documents') == '1'), [
+                        'id' => 'all-documents',
+                        'class' => 'custom-control-input',
+                        'value' => 1
+                    ]) ?>
+                    <label class="has-star custom-control-label" for="all-documents">Отображать все виды документов</label>
+                </div>
             </div>
-        </div>
 
         <?php endif; ?>
 

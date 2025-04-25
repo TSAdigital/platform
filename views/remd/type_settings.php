@@ -20,7 +20,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <?php $form = ActiveForm::begin(); ?>
 
         <div class="form-group">
-            <label class="form-label">Выберите типы документов для отображения по умолчанию:</label>
+            <label class="form-label">Выберите виды документов для отображения по умолчанию:</label>
 
             <div class="doc-types-list">
                 <?php foreach ($allDocTypes as $type): ?>

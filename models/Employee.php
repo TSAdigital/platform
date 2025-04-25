@@ -27,6 +27,7 @@ use yii\helpers\ArrayHelper;
  * @property int $updated_by ID пользователя, обновившего запись
  * @property int $created_at Временная метка создания записи
  * @property int $updated_at Временная метка обновления записи
+ * @property int $total_documents Всего документов
  *
  * @property Position $position Связанная должность
  * @property User $user Связанный пользователь системы
@@ -35,6 +36,8 @@ use yii\helpers\ArrayHelper;
 
 class Employee extends ActiveRecord
 {
+    public $total_documents;
+
     /**
      * Статус: сотрудник активен
      */

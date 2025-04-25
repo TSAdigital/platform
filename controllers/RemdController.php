@@ -6,26 +6,22 @@ use app\models\Employee;
 use app\models\Position;
 use app\models\Remd;
 use app\models\RemdBaseSetting;
+use app\models\RemdEmployee;
+use app\models\RemdPlan;
 use app\models\RemdTypeSetting;
 use Yii;
+use yii\data\ActiveDataProvider;
 use yii\data\Pagination;
 use yii\db\Exception;
 use yii\filters\AccessControl;
-use yii\helpers\ArrayHelper;
 use yii\web\Controller;
+use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 class RemdController extends Controller
 {
     /**
      * Определяет поведения и правила доступа для контроллера.
-     *
-     * Наследует поведения родительского класса и добавляет:
-     * - AccessControl для управления правами доступа к экшенам
-     *
-     * Правила доступа:
-     * - Экшены 'index' и 'employee-list' доступны пользователям с ролью 'viewRemdList'
-     * - Экшены 'base-setting' и 'type-setting' доступны пользователям с ролью 'makeRemdSetting'
      */
     public function behaviors()
     {
@@ -37,12 +33,12 @@ class RemdController extends Controller
                     'rules' => [
                         [
                             'allow' => true,
-                            'actions' => ['index', 'employee-list'],
+                            'actions' => ['index', 'employee-list', 'analytics', 'employee-documents'],
                             'roles' => ['viewRemdList'],
                         ],
                         [
                             'allow' => true,
-                            'actions' => ['base-setting', 'type-setting'],
+                            'actions' => ['base-setting', 'type-setting', 'plan', 'create-plan',  'update-plan', 'delete-plan'],
                             'roles' => ['makeRemdSetting'],
                         ],
                     ],
@@ -63,19 +59,226 @@ class RemdController extends Controller
         $baseSettings = RemdBaseSetting::getSettings();
         $typeSettings = RemdTypeSetting::getSettings();
 
-        $lastRegistrationDate = $baseSettings->date_of_update ? $baseSettings->date_of_update : Remd::getLastRegistrationDate();
+        $searchParams = Yii::$app->request->get();
 
         $currentYear = date('Y');
+
         $defaultDateFrom = $baseSettings->date_from ? date('Y-m-d', strtotime($baseSettings->date_from)) : $currentYear . '-01-01';
         $defaultDateTo = $baseSettings->date_to ? date('Y-m-d', strtotime($baseSettings->date_to)) : $currentYear . '-12-31';
 
-        $searchParams = Yii::$app->request->get();
-        $employeeId = $searchParams['employee_id'] ?? '';
-        $positionId = $searchParams['position_id'] ?? '';
         $dateFrom = (isset($searchParams['date_from']) && !empty($searchParams['date_from'])) ? date('Y-m-d', strtotime($searchParams['date_from'])) : $defaultDateFrom;
         $dateTo = (isset($searchParams['date_to']) && !empty($searchParams['date_to'])) ? date('Y-m-d', strtotime($searchParams['date_to'])) : $defaultDateTo;
-        $docType = $searchParams['doc_type'] ?? '';
+        $documentType = $searchParams['document_type'] ?? '';
+        $employeeId = $searchParams['employee_id'] ?? null;
+        $positionId = $searchParams['position_id'] ?? null;
         $allDocuments = $searchParams['all_documents'] ?? null;
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+
+        $positions = Position::find()
+            ->select(['id', 'name'])
+            ->asArray()
+            ->all();
+
+        $positionList = array_column($positions, 'name', 'id');
+
+        $query = Employee::find()
+            ->select([
+                'employee.id',
+                'employee.first_name',
+                'employee.last_name',
+                'employee.middle_name',
+                'employee.position_id',
+                'total_documents' => 'COUNT(remd_employee.remd_id)',
+            ])
+            ->with('position')
+            ->innerJoin('remd_employee', 'remd_employee.employee_id = employee.id')
+            ->innerJoin(['remd_alias' => 'remd'], 'remd_alias.id = remd_employee.remd_id');
+
+        if ($dateFrom && $dateTo) {
+            $query->andWhere(['between', 'remd_alias.registration_date', $dateFrom, $dateTo]);
+        }
+
+        if ($documentType) {
+            $query->andWhere(['remd_alias.type' => $documentType]);
+        }
+
+        if ($employeeId) {
+            $query->andWhere(['employee.id' => $employeeId]);
+        }
+
+        if ($positionId) {
+            $query->andWhere(['employee.position_id' => $positionId]);
+        }
+
+        if ($enabledDocTypes and !$allDocuments) {
+            $query->andWhere(['remd_alias.type' => $enabledDocTypes]);
+        }
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query->groupBy('employee.id'),
+            'pagination' => [
+                'pageSize' => $baseSettings->page_size ? $baseSettings->page_size : 10,
+            ],
+            'sort' => [
+                'attributes' => [
+                    'fullName' => [
+                        'asc' => ['employee.last_name' => SORT_ASC, 'employee.first_name' => SORT_ASC, 'employee.middle_name' => SORT_ASC],
+                        'desc' => ['employee.last_name' => SORT_DESC, 'employee.first_name' => SORT_DESC, 'employee.middle_name' => SORT_DESC],
+                        'label' => 'ФИО',
+                        'default' => SORT_ASC,
+                    ],
+                ],
+                'defaultOrder' => [
+                    'fullName' => SORT_ASC,
+                ],
+            ],
+        ]);
+
+        $models = $dataProvider->getModels();
+        $employeeIds = array_map(fn($model) => $model->id, $models);
+
+        $documentTypesQuery = Remd::find()
+            ->select([
+                'remd_employee.employee_id',
+                'remd.type',
+                'count' => 'COUNT(*)',
+            ])
+            ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
+            ->where(['remd_employee.employee_id' => $employeeIds]);
+
+        if ($dateFrom && $dateTo) {
+            $documentTypesQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
+        }
+
+        if ($documentType) {
+            $documentTypesQuery->andWhere(['remd.type' => $documentType]);
+        }
+
+        if ($enabledDocTypes and !$allDocuments) {
+            $documentTypesQuery->andWhere(['remd.type' => $enabledDocTypes]);
+        }
+
+        $documentTypesData = $documentTypesQuery
+            ->groupBy(['remd_employee.employee_id', 'remd.type'])
+            ->orderBy(['remd.type' => SORT_ASC])
+            ->asArray()
+            ->all();
+
+        $documentTypesByEmployee = [];
+        foreach ($documentTypesData as $item) {
+            $documentTypesByEmployee[$item['employee_id']][] = [
+                'type' => $item['type'],
+                'count' => $item['count'],
+            ];
+        }
+
+        $result = [];
+        foreach ($models as $employee) {
+            $result[] = [
+                'id' => $employee->id,
+                'full_name' => $employee->last_name . ' ' . $employee->first_name . ' ' . $employee->middle_name,
+                'position' => $employee->getPositionName(),
+                'total_documents' => $employee->total_documents,
+                'document_types' => $documentTypesByEmployee[$employee->id] ?? [],
+            ];
+        }
+
+        $totalDocumentsQuery = Remd::find()
+            ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
+            ->innerJoin('employee', 'employee.id = remd_employee.employee_id');
+
+        if ($dateFrom && $dateTo) {
+            $totalDocumentsQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
+        }
+
+        if ($documentType) {
+            $totalDocumentsQuery->andWhere(['remd.type' => $documentType]);
+        }
+
+        if ($positionId) {
+            $totalDocumentsQuery->andWhere(['employee.position_id' => $positionId]);
+        }
+
+        if ($enabledDocTypes and !$allDocuments) {
+            $totalDocumentsQuery->andWhere(['remd.type' => $enabledDocTypes]);
+        }
+
+        if ($employeeId) {
+            $totalDocumentsQuery->andWhere(['remd_employee.employee_id' => $employeeId]); // Фильтрация по сотруднику
+        }
+
+        $totalDocumentsQuery->select('remd.id')->groupBy('remd.id');
+        $totalDocuments = $totalDocumentsQuery->count();
+
+        $uniqueDocumentTypesQuery = Remd::find()
+            ->select(['type' => 'remd.type', 'count' => 'COUNT(DISTINCT remd.id)'])
+            ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
+            ->innerJoin('employee', 'employee.id = remd_employee.employee_id');
+
+        if ($dateFrom && $dateTo) {
+            $uniqueDocumentTypesQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
+        }
+
+        if ($documentType) {
+            $uniqueDocumentTypesQuery->andWhere(['remd.type' => $documentType]);
+        }
+
+        if ($positionId) {
+            $uniqueDocumentTypesQuery->andWhere(['employee.position_id' => $positionId]);
+        }
+
+        if ($enabledDocTypes and !$allDocuments) {
+            $uniqueDocumentTypesQuery->andWhere(['remd.type' => $enabledDocTypes]);
+        }
+
+        if ($employeeId) {
+            $uniqueDocumentTypesQuery->andWhere(['remd_employee.employee_id' => $employeeId]); // Фильтрация по сотруднику
+        }
+
+        $uniqueDocumentTypes = $uniqueDocumentTypesQuery
+            ->groupBy('remd.type')
+            ->orderBy(['remd.type' => SORT_ASC])
+            ->asArray()
+            ->all();
+
+        $uniqueEmployeesWithDocumentsQuery = RemdEmployee::find()
+            ->select('employee.id')
+            ->distinct()
+            ->innerJoin(['remd_alias' => 'remd'], 'remd_alias.id = remd_employee.remd_id')
+            ->innerJoin('employee', 'employee.id = remd_employee.employee_id');
+
+        if ($dateFrom && $dateTo) {
+            $uniqueEmployeesWithDocumentsQuery->andWhere(['between', 'remd_alias.registration_date', $dateFrom, $dateTo]);
+        }
+
+        if ($documentType) {
+            $uniqueEmployeesWithDocumentsQuery->andWhere(['remd_alias.type' => $documentType]);
+        }
+
+        if ($positionId) {
+            $uniqueEmployeesWithDocumentsQuery->andWhere(['employee.position_id' => $positionId]);
+        }
+
+        if ($enabledDocTypes and !$allDocuments) {
+            $uniqueEmployeesWithDocumentsQuery->andWhere(['remd_alias.type' => $enabledDocTypes]);
+        }
+
+        if ($employeeId) {
+            $uniqueEmployeesWithDocumentsQuery->andWhere(['employee.id' => $employeeId]);
+        }
+
+        $uniqueEmployeesWithDocuments = $uniqueEmployeesWithDocumentsQuery->count();
+
+        $latestDocumentDateQuery = Remd::find()->select('registration_date');
+        if ($dateFrom && $dateTo) {
+            $latestDocumentDateQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
+        }
+        if ($documentType) {
+            $latestDocumentDateQuery->andWhere(['remd.type' => $documentType]);
+        }
+
+        $latestDocumentDate = $baseSettings->date_of_update ? $baseSettings->date_of_update : Remd::getLastRegistrationDate();
 
         $employeeName = '';
 
@@ -84,151 +287,21 @@ class RemdController extends Controller
             $employeeName = $employee ? $employee->getFullName() : '';
         }
 
-
-        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
-
-        $allDocTypes = Remd::find()
-            ->select('type')
-            ->distinct()
-            ->orderBy('type')
-            ->column();
-
-        if ($enabledDocTypes and !$allDocuments) {
-            $allDocTypes = $enabledDocTypes;
-        }
-
-        $filteredRemdsQuery = Remd::find()
-            ->joinWith([
-                'employees' => function($query) use ($positionId, $employeeId) {
-                    if (!empty($positionId)) {
-                        $query->andWhere(['employee.position_id' => $positionId]);
-                    }
-                    if (!empty($employeeId)) {
-                        $query->andWhere(['employee.id' => $employeeId]);
-                    }
-                }
-            ]);
-
-        if ($enabledDocTypes and !$allDocuments) {
-            $filteredRemdsQuery->andWhere(['remd.type' => $enabledDocTypes]);
-        }
-
-        if (!empty($dateFrom)) {
-            $filteredRemdsQuery->andWhere(['>=', 'remd.registration_date', $dateFrom]);
-        }
-        if (!empty($dateTo)) {
-            $filteredRemdsQuery->andWhere(['<=', 'remd.registration_date', $dateTo]);
-        }
-        if (!empty($docType)) {
-            $filteredRemdsQuery->andWhere(['remd.type' => $docType]);
-        }
-
-        $totalRemds = (clone $filteredRemdsQuery)
-            ->select('remd.id')
-            ->distinct()
-            ->count();
-
-        $filteredTypesQuery = (clone $filteredRemdsQuery)
-            ->select('type')
-            ->distinct();
-
-        if (!empty($positionId)) {
-            $filteredTypesQuery->andWhere(['employee.position_id' => $positionId]);
-        }
-
-        $filteredTypes = $filteredTypesQuery->column();
-        $filteredTypesCount = count($filteredTypes);
-
-        $remdsByType = (clone $filteredRemdsQuery)
-            ->select(['type', 'COUNT(*) as count'])
-            ->groupBy('type')
-            ->asArray()
-            ->all();
-
-        $employeesQuery = Employee::find()
-            ->joinWith([
-                'remds' => function($query) use ($dateFrom, $dateTo, $docType) {
-                    $query->andWhere(['IS NOT', 'remd.id', null]);
-                    if (!empty($dateFrom)) {
-                        $query->andWhere(['>=', 'remd.registration_date', $dateFrom]);
-                    }
-                    if (!empty($dateTo)) {
-                        $query->andWhere(['<=', 'remd.registration_date', $dateTo]);
-                    }
-                    if (!empty($docType)) {
-                        $query->andWhere(['remd.type' => $docType]);
-                    }
-                },
-                'position'
-            ])->groupBy('employee.id');
-
-        if ($enabledDocTypes and !$allDocuments) {
-            $employeesQuery->andWhere(['remd.type' => $enabledDocTypes]);
-        }
-
-        if (!empty($positionId)) {
-            $employeesQuery->andWhere(['position_id' => $positionId]);
-        }
-        if (!empty($employeeId)) {
-            $employeesQuery->andWhere(['employee.id' => $employeeId]);
-        }
-
-        $totalEmployeesWithRemds = (clone $employeesQuery)
-            ->select('employee.id')
-            ->distinct()
-            ->count();
-
-        $employeesQuery->orderBy([
-            'last_name' => SORT_ASC,
-            'first_name' => SORT_ASC,
-            'middle_name' => SORT_ASC,
-            'id' => SORT_ASC
-        ]);
-
-        $pages = new Pagination([
-            'totalCount' => $totalEmployeesWithRemds,
-            'pageSize' => $baseSettings->page_size ? $baseSettings->page_size : 10,
-            'pageSizeParam' => false,
-        ]);
-
-        $employeesWithRemds = $employeesQuery
-            ->offset($pages->offset)
-            ->limit($pages->limit)
-            ->all();
-
-        $query = Position::find()
-            ->select(['position.id', 'position.name'])
-            ->innerJoin('employee', 'employee.position_id = position.id')
-            ->innerJoin('remd_employee', 'remd_employee.employee_id = employee.id')
-            ->innerJoin('remd', 'remd.id = remd_employee.remd_id')
-            ->distinct();
-
-        if (!empty($enabledDocTypes) and !$allDocuments) {
-            $query->where(['remd.type' => $enabledDocTypes]);
-        }
-
-        $positions = $query->asArray()->all();
-
-        $positionList = ArrayHelper::map($positions, 'id', 'name');
-
         return $this->render('index', [
-            'totalRemds' => $totalRemds,
-            'remdsByType' => $remdsByType,
-            'employeesWithRemds' => $employeesWithRemds,
-            'pages' => $pages,
-            'totalTypesCount' => $filteredTypesCount,
-            'totalEmployeesWithRemds' => $totalEmployeesWithRemds,
-            'allDocTypes' => $allDocTypes,
-            'docType' => $docType,
-            'positionList' => $positionList,
-            'employeeId' => $employeeId,
-            'selectedEmployeeName' => $employeeName,
-            'positionId' => $positionId,
+            'data' => $result,
+            'dataProvider' => $dataProvider,
+            'totalDocuments' => $totalDocuments,
+            'uniqueDocumentTypes' => $uniqueDocumentTypes,
+            'uniqueEmployeesWithDocuments' => $uniqueEmployeesWithDocuments,
+            'latestDocumentDate' => $latestDocumentDate,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
+            'documentType' => $documentType,
+            'employeeId' => $employeeId,
+            'positionId' => $positionId,
+            'positionList' => $positionList,
+            'selectedEmployeeName' => $employeeName,
             'enabledDocTypes' => $enabledDocTypes,
-            'allDocuments' => $allDocuments,
-            'lastRegistrationDate' => $lastRegistrationDate,
         ]);
     }
 
@@ -243,12 +316,6 @@ class RemdController extends Controller
 
         $request = Yii::$app->request;
         $q = $request->get('q');
-        $enabledDocTypesJson = $request->get('enabledDocTypes');
-
-        $enabledDocTypes = [];
-        if ($enabledDocTypesJson) {
-            $enabledDocTypes = json_decode($enabledDocTypesJson, true);
-        }
 
         $query = Employee::find()
             ->select(['employee.id', 'CONCAT_WS(Char(32), employee.last_name, employee.first_name, employee.middle_name, CONCAT("(", position.name, ")")) AS text'])
@@ -259,10 +326,6 @@ class RemdController extends Controller
 
         if ($q) {
             $query->where(['like', 'CONCAT_WS(Char(32), employee.last_name, employee.first_name, employee.middle_name, position.name)', trim($q)]);
-        }
-
-        if (!empty($enabledDocTypes)) {
-            $query->andWhere(['remd.type' => $enabledDocTypes]);
         }
 
         $results = $query->limit(20)->asArray()->all();
@@ -293,7 +356,7 @@ class RemdController extends Controller
             }
         }
 
-        return $this->render('base_setting', [
+        return $this->render('base_settings', [
             'model' => $model,
         ]);
     }
@@ -308,11 +371,8 @@ class RemdController extends Controller
     public function actionTypeSetting()
     {
         $settings = RemdTypeSetting::getSettings();
-        $allDocTypes = Remd::find()
-            ->select('type')
-            ->distinct()
-            ->orderBy('type')
-            ->column();
+
+        $allDocTypes = Remd::getAllDocTypes();
 
         if (Yii::$app->request->isPost) {
             $selectedTypes = Yii::$app->request->post('doc_types', []);
@@ -329,6 +389,181 @@ class RemdController extends Controller
         return $this->render('type_settings', [
             'settings' => $settings,
             'allDocTypes' => $allDocTypes,
+        ]);
+    }
+
+    /**
+     * Отображает список планов РЕМД с группировкой по годам.
+     *
+     * @return string Результат рендеринга представления
+     */
+    public function actionPlan()
+    {
+        $query = RemdPlan::find()
+            ->orderBy(['year' => SORT_DESC, 'type' => SORT_ASC]);
+
+        $pagination = new Pagination([
+            'totalCount' => $query->count(),
+            'pageSize' => 100,
+        ]);
+
+        $models = $query->offset($pagination->offset)
+            ->limit($pagination->limit)
+            ->all();
+
+        $groupedModels = [];
+        foreach ($models as $model) {
+            $groupedModels[$model->year][] = $model;
+        }
+
+        return $this->render('plan', [
+            'groupedModels' => $groupedModels,
+            'pagination' => $pagination,
+        ]);
+    }
+
+    /**
+     * Создает новый план РЕМД.
+     *
+     * @return string|Response Результат рендеринга или редирект после сохранения
+     */
+    public function actionCreatePlan()
+    {
+        $model = new RemdPlan();
+        $docTypes = Remd::getAllDocTypes();
+        $years = Remd::getUniqueRegistrationYears();
+
+        if ($this->request->isPost && $model->load(Yii::$app->request->post())) {
+            if ($model->validate()) {
+                if ($model->save(false)) {
+                    Yii::$app->notification->success('План успешно добавлен');
+                    return $this->redirect(['plan']);
+                } else {
+                    Yii::$app->notification->error('Ошибка при сохранении в БД');
+                }
+            } else {
+                Yii::$app->notification->error('Исправьте ошибки в форме');
+            }
+        } else {
+            $model->loadDefaultValues();
+        }
+
+        return $this->render('create_plan', [
+            'model' => $model,
+            'docTypes' => $docTypes,
+            'years' => $years,
+        ]);
+    }
+
+    /**
+     * Обновляет существующий план РЕМД.
+     *
+     * @param int $id ID плана для обновления
+     * @return string|Response Результат рендеринга или редирект после сохранения
+     * @throws NotFoundHttpException Если план не найден
+     */
+    public function actionUpdatePlan($id)
+    {
+        $model = RemdPlan::findOne($id);
+
+        if (!$model) {
+            throw new NotFoundHttpException('Запрошенная страница не существует.');
+        }
+
+        $docTypes = Remd::getAllDocTypes();
+        $years = Remd::getUniqueRegistrationYears();
+
+        if ($this->request->isPost && $model->load(Yii::$app->request->post())) {
+            if ($model->validate()) {
+                if ($model->save(false)) {
+                    Yii::$app->notification->success('План успешно обновлен');
+                    return $this->redirect(['plan']);
+                } else {
+                    Yii::$app->notification->error('Ошибка при сохранении в БД');
+                }
+            } else {
+                Yii::$app->notification->error('Ошибки валидации');
+            }
+        }
+
+        return $this->render('update_plan', [
+            'model' => $model,
+            'docTypes' => $docTypes,
+            'years' => $years,
+        ]);
+    }
+
+    /**
+     * Удаляет план РЕМД.
+     *
+     * @param int $id ID плана для удаления
+     * @return Response Редирект на страницу списка планов
+     * @throws NotFoundHttpException Если план не найден
+     */
+    public function actionDeletePlan($id) {
+        $model = RemdPlan::findOne($id);
+
+        if (!$model) {
+            throw new NotFoundHttpException('Запрошенная страница не существует.');
+        }
+
+        if ($model->delete()) {
+            Yii::$app->notification->success('План успешно удален');
+            return $this->redirect(['plan']);
+        } else {
+            Yii::$app->notification->error('Не удалось удалить план');
+        }
+
+        return $this->redirect(['plan']);
+    }
+
+    /**
+     * Отображает аналитику по выполнению планов РЕМД.
+     * Показывает сравнение плановых и фактических показателей.
+     *
+     * @return string Результат рендеринга представления
+     */
+    public function actionAnalytics()
+    {
+        $year = 2025;
+        $hideEmptyMonths = true;
+
+        $generalPlan = RemdPlan::find()
+            ->where(['year' => $year])
+            ->andWhere(['or', ['type' => null], ['type' => '']])
+            ->one();
+
+        $typedPlans = RemdPlan::find()
+            ->where(['year' => $year])
+            ->andWhere(['IS NOT', 'type', null])
+            ->andWhere(['<>', 'type', ''])
+            ->all();
+
+        $generalActual = Remd::getActualStats($year);
+
+        $data = [
+            'general' => [
+                'plan' => $generalPlan,
+                'actual' => $generalActual,
+            ],
+            'typed' => [],
+            'hideEmptyMonths' => $hideEmptyMonths,
+        ];
+
+        foreach ($typedPlans as $plan) {
+            if (!empty($plan->type)) {
+                $data['typed'][] = [
+                    'plan' => $plan,
+                    'actual' => Remd::getActualStats($year, $plan->type),
+                    'type' => $plan->type,
+                ];
+            }
+        }
+
+        return $this->render('analytics', [
+            'year' => $year,
+            'data' => $data,
+            'years' => Remd::getUniqueRegistrationYears(),
         ]);
     }
 }

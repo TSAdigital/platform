@@ -166,4 +166,60 @@ class Remd extends ActiveRecord
 
         return $grouped;
     }
+
+    /**
+     * Возвращает все уникальные типы документов, существующие в системе.
+     *
+     * Метод выполняет запрос к базе данных для получения всех уникальных значений
+     * из колонки `type`, отсортированных в алфавитном порядке.
+     *
+     * @return string[] Массив строк, содержащий все уникальные типы документов.
+     *                  Возвращает пустой массив, если документов нет.
+     */
+    public static function getAllDocTypes()
+    {
+        return self::find()
+            ->select('type')
+            ->distinct()
+            ->orderBy('type')
+            ->column();
+    }
+
+    /**
+     * Возвращает все уникальные года из дат регистрации документов
+     *
+     * @return array Массив уникальных годов в порядке возрастания
+     */
+    public static function getUniqueRegistrationYears()
+    {
+        return self::find()
+            ->select('YEAR(registration_date) as year')
+            ->distinct()
+            ->orderBy('year')
+            ->column();
+    }
+
+    public static function getActualStats($year, $type = null)
+    {
+        $query = self::find()
+            ->where(['YEAR(registration_date)' => $year])
+            ->select([
+                'COUNT(*) as count',
+                'MONTH(registration_date) as month'
+            ])
+            ->groupBy('MONTH(registration_date)');
+
+        if ($type) {
+            $query->andWhere(['type' => $type]);
+        }
+
+        $result = $query->asArray()->all();
+
+        $stats = array_fill(1, 12, 0);
+        foreach ($result as $row) {
+            $stats[(int)$row['month']] = (int)$row['count'];
+        }
+
+        return $stats;
+    }
 }
