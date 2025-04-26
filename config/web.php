@@ -21,7 +21,7 @@ $config = [
     'components' => [
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
-            'cookieValidationKey' => 'mUAy4mE2YbBr_rX7V-RBj7iDK4b0zosC',
+            'cookieValidationKey' => '',
         ],
         'qrCodeGenerator' => [
             'class' => 'app\components\QrCodeGenerator',
@@ -107,6 +107,9 @@ $config = [
                 'remd' => 'remd/index',
                 'remd/setting/base' => 'remd/base-setting',
                 'remd/setting/type' => 'remd/type-setting',
+                'remd/plan/create' => 'remd/create-plan',
+                'remd/plan/<id:\d+>/update' => 'remd/update-plan',
+                'remd/plan/<id:\d+>/delete' => 'remd/delete-plan',
 
                 'employees' => 'employee/index',
                 'employee/create' => 'employee/create',

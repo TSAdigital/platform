@@ -102,4 +102,12 @@ class Position extends ActiveRecord
             ->where(['status' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE]])
             ->column();
     }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEmployees()
+    {
+        return $this->hasMany(Employee::class, ['position_id' => 'id']);
+    }
 }

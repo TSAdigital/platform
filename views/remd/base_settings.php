@@ -1,11 +1,13 @@
 <?php
 
 use kartik\date\DatePicker;
+use kartik\select2\Select2;
 use yii\helpers\Html;
 use yii\bootstrap5\ActiveForm;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\RemdBaseSetting */
+/* @var array $years */
 
 $this->title = 'Базовые настройки документов РЭМД';
 $this->params['breadcrumbs'][] = ['label' => 'Зарегистрированные документы в РЭМД', 'url' => ['index']];
@@ -58,7 +60,34 @@ $this->params['breadcrumbs'][] = $this->title;
 
         <?= $form->field($model, 'page_size')->textInput(['type' => 'number']) ?>
 
+        <?= $form->field($model, 'analytics_period')->widget(Select2::class,
+            [
+                'data' => array_combine($years, $years),
+                'pluginOptions' => [
+                    'allowClear' => true,
+                    'placeholder' => 'Выберите год...',
+                ],
+            ]
+        ); ?>
+
+        <?= $form->field($model, 'chart_type')->widget(Select2::class,
+            [
+                'data' => [
+                        'linear' => 'Линейный',
+                        'logarithmic' => 'Логарифмический',
+                    ],
+                'pluginOptions' => [
+                    'allowClear' => true,
+                    'placeholder' => 'Выберите тип графика...',
+                ],
+            ]
+        ); ?>
+
+        <?= $form->field($model, 'hide_empty_months')->checkbox() ?>
+
         <?= $form->field($model, 'lk_document_filter_enabled')->checkbox() ?>
+
+        <?= $form->field($model, 'use_caching')->checkbox() ?>
 
         <div class="form-group mt-3">
             <?= Html::submitButton('Сохранить', ['class' => 'btn btn-success']) ?>

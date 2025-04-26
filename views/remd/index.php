@@ -9,6 +9,7 @@
 /* @var int $uniqueEmployeesWithDocuments */
 /* @var string $latestDocumentDate */
 /* @var string $selectedEmployeeName */
+/* @var string $selectedPositionName */
 /* @var array $positionList */
 /* @var bool $enabledDocTypes */
 /* @var string $dateFrom */
@@ -38,6 +39,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <?= Html::a('Основные', ['remd/base-setting'], ['class' => 'dropdown-item']) ?>
             <?= Html::a('Виды документов', ['remd/type-setting'], ['class' => 'dropdown-item']) ?>
             <?= Html::a('Планирование', ['remd/plan'], ['class' => 'dropdown-item']) ?>
+            <?= Html::a('Очистить кэш', ['remd/flush-cache'], ['class' => 'dropdown-item', 'data' => ['confirm' => 'Вы уверены, что хотите очистить кэш?', 'method' => 'post',]]) ?>
         </ul>
     </div>
 
@@ -324,21 +326,33 @@ $this->params['breadcrumbs'][] = $this->title;
 
         <div class="form-group mt-3">
             <label class="form-label">Должность</label>
-            <?=
-            Select2::widget([
+
+            <?= Select2::widget([
                 'name' => 'position_id',
                 'value' => Yii::$app->request->get('position_id'),
-                'data' => $positionList,
+                'initValueText' => $selectedPositionName,
                 'options' => [
-                    'placeholder' => 'Выберите должность...',
-                    'multiple' => false
+                    'placeholder' => 'Введите должность сотрудника...',
+                    'multiple' => false,
                 ],
                 'pluginOptions' => [
                     'allowClear' => true,
                     'dropdownParent' => '#staticBackdrop',
+                    'minimumInputLength' => 3,
+                    'ajax' => [
+                        'url' => Url::to(['remd/position-list']),
+                        'dataType' => 'json',
+                        'data' => new JsExpression('function(params) {
+                            var enabledTypes = $(this).data("enabledDocTypes");
+                            return {
+                                q: params.term,
+                                enabledDocTypes: enabledTypes ? JSON.stringify(enabledTypes) : null
+                            };
+                        }'),
+                        'delay' => 300,
+                    ],
                 ],
-            ]);
-            ?>
+            ]) ?>
         </div>
 
         <?php if ($enabledDocTypes): ?>

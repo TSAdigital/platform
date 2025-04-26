@@ -1,12 +1,13 @@
 <?php
 
 /** @var array $data */
-/** @var array $year */
+/** @var string $year */
 /** @var array $typedData */
+/** @var string $chartType */
 
 use yii\helpers\Html;
 
-$this->title = 'Аналитика по документам зарегистрированных в РЭМД';
+$this->title = 'Аналитика по документам зарегистрированных в РЭМД за ' . $year . ' год';
 $this->params['breadcrumbs'][] = ['label' => 'Зарегистрированные документы в РЭМД', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
@@ -42,7 +43,8 @@ $this->params['breadcrumbs'][] = $this->title;
                     <?= $this->render('_infographic', [
                         'plan' => $data['general']['plan'],
                         'actual' => $data['general']['actual'],
-                        'data' => $data
+                        'data' => $data,
+                        'chartType' => $chartType
                     ]) ?>
 
                 </div>
@@ -56,7 +58,8 @@ $this->params['breadcrumbs'][] = $this->title;
                             <?= $this->render('_infographic', [
                                 'plan' => $item['plan'],
                                 'actual' => $item['actual'],
-                                'data' => $data
+                                'data' => $data,
+                                'chartType' => $chartType
                             ]) ?>
                         </div>
 

@@ -12,8 +12,12 @@ use yii\db\ActiveRecord;
  * @property string|null $date_from Начальная дата периода в формате d.m.Y
  * @property string|null $date_to Конечная дата периода в формате d.m.Y
  * @property string|null $date_of_update Дата последнего обновления в формате d.m.Y
+ * @property string|null $chart_type Тип графика
  * @property int|null $page_size Количество элементов на странице (от 5 до 300)
+ * @property int|null $analytics_period Год за который будет отображена аналитика в формате Y
  * @property int|null $lk_document_filter_enabled Флаг активации фильтра документов в ЛК (0 или 1)
+ * @property int|null $hide_empty_months Флаг активации скрытия пустых месяцев (0 или 1)
+ * @property int|null $use_caching Флаг активации использования кеширования (0 или 1)
  * @property int|null $created_at Временная метка создания записи
  * @property int|null $updated_at Временная метка обновления записи
  */
@@ -52,7 +56,10 @@ class RemdBaseSetting extends ActiveRecord
         return [
             [['date_from', 'date_to', 'date_of_update'], 'date', 'format' => 'php:d.m.Y'],
             [['page_size'], 'integer', 'min' => 5, 'max' => 300],
-            [['lk_document_filter_enabled'], 'boolean'],
+            [['analytics_period'], 'integer'],
+            [['chart_type'], 'string'],
+            [['chart_type'], 'string'],
+            [['lk_document_filter_enabled', 'hide_empty_months', 'use_caching'], 'boolean'],
         ];
     }
 
@@ -69,7 +76,11 @@ class RemdBaseSetting extends ActiveRecord
             'date_to' => 'Дата окончания периода',
             'date_of_update' => 'Дата последнего обновления',
             'page_size' => 'Количество элементов на странице',
+            'analytics_period' => 'Отображать аналитику за',
+            'chart_type' => 'Тип графика',
+            'hide_empty_months' => 'Исключить из аналитики месяцы без данных',
             'lk_document_filter_enabled' => 'Учитывать настройки по видам документов в личном кабинете сотрудника',
+            'use_caching' => 'Использовать кэширование',
             'created_at' => 'Запись создана',
             'updated_at' => 'Запись обновлена',
         ];

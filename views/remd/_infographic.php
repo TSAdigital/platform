@@ -1,6 +1,7 @@
 <?php
 
 /** @var array $data */
+/** @var string $chartType */
 
 use yii\helpers\Json;
 use yii\web\View;
@@ -80,6 +81,7 @@ $allLabels = array_merge($labels, $quarterLabels, ['Год ' . $yearPercent . '%
 $allPlanData = array_merge($planData, $quarterPlanData, [$yearPlan]);
 $allActualData = array_merge($actualData, $quarterActualData, [$yearActual]);
 $allPercentData = array_merge($percentData, $quarterPercentData, [$yearPercent]);
+$chartType = $chartType ? $chartType : 'logarithmic';
 ?>
 
 <div class="chart-container" style="position: relative; height:400px; margin-top:20px;">
@@ -123,7 +125,7 @@ $this->registerJsFile('@web/js/chartjs-plugin-datalabels.js', ['position' => Vie
                 maintainAspectRatio: false,
                 scales: {
                     y: {
-                        type: 'logarithmic',
+                        type: '<?= $chartType ?>',
                         ticks: {
                             callback: function(value) {
                                 return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
