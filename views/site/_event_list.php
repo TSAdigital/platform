@@ -14,7 +14,7 @@ use yii\bootstrap5\Html;
             'name' => Html::encode($model->user->getEmployeeFullName()),
             'avatarUrl' => $model->user->avatar ? '/uploads/avatars/' . $model->user->avatar : null,
             'userId' => $model->user->id,
-            'size' => 42,
+            'size' => 40,
         ]) ?>
     </div>
 

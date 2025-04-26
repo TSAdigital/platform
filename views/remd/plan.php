@@ -43,7 +43,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                         <div class="col-1 text-end">
                             <?= Html::a(
-                                '<svg data-feather="info" class="text-danger"></svg>',
+                                '<svg data-feather="trash-2" class="text-danger"></svg>',
                                 ['delete-plan', 'id' => $plan->id],
                                 [
                                     'title' => 'Удалить',
