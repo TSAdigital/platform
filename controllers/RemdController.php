@@ -127,7 +127,7 @@ class RemdController extends Controller
             $dataProvider = new ActiveDataProvider([
                 'query' => $query->groupBy('employee.id'),
                 'pagination' => [
-                    'pageSize' => $baseSettings->page_size ? $baseSettings->page_size : 10,
+                    'pageSize' => $pageSize,
                 ],
                 'sort' => [
                     'attributes' => [
