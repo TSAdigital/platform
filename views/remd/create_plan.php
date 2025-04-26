@@ -5,9 +5,9 @@
 /* @var array $docTypes */
 /* @var array $years */
 
-$this->title = 'Новый план документов РЕМД';
+$this->title = 'Новый план документов РЭМД';
 $this->params['breadcrumbs'][] = ['label' => 'Зарегистрированные документы в РЭМД', 'url' => ['index']];
-$this->params['breadcrumbs'][] = ['label' => 'Планирование документов РЕМД', 'url' => ['plan']];
+$this->params['breadcrumbs'][] = ['label' => 'Планирование документов РЭМД', 'url' => ['plan']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 

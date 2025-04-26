@@ -7,7 +7,7 @@ use yii\widgets\LinkPager;
 /* @var array $groupedModels */
 /* @var $pagination \yii\data\Pagination */
 
-$this->title = 'Планирование документов РЕМД';
+$this->title = 'Планирование документов РЭМД';
 $this->params['breadcrumbs'][] = ['label' => 'Зарегистрированные документы в РЭМД', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
