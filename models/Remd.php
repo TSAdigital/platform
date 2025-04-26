@@ -121,25 +121,26 @@ class Remd extends ActiveRecord
         ];
 
         $query = self::find()
-            ->joinWith('employees')
-            ->where(['employee.id' => $employeeId])
-            ->orderBy('registration_date DESC');
+            ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
+            ->where(['remd_employee.employee_id' => $employeeId])
+            ->select([
+                'YEAR(registration_date) as year',
+                'MONTH(registration_date) as month',
+                'type',
+                'COUNT(*) as count'
+            ])
+            ->groupBy(['year', 'month', 'type'])
+            ->orderBy(['year' => SORT_DESC, 'month' => SORT_DESC]);
 
-        if (RemdBaseSetting::getSettings()->lk_document_filter_enabled &&
-            ($types = RemdTypeSetting::getSettings()->getEnabledDocTypesArray())) {
-            $query->andWhere(['type' => $types]);
-        }
-
-        $documents = $query->all();
-
+        $results = $query->asArray()->all();
         $grouped = [];
 
-        foreach ($documents as $document) {
-            $date = new \DateTime($document->registration_date);
-            $year = $date->format('Y');
-            $month = (int)$date->format('n');
-            $monthName = $russianMonths[$month] ?? $date->format('F');
-            $type = $document->type;
+        foreach ($results as $row) {
+            $year = $row['year'];
+            $month = $row['month'];
+            $monthName = $russianMonths[$month] ?? date('F', mktime(0, 0, 0, $month, 10));
+            $type = $row['type'];
+            $count = $row['count'];
 
             if (!isset($grouped[$year])) {
                 $grouped[$year] = [
@@ -147,7 +148,8 @@ class Remd extends ActiveRecord
                     'months' => []
                 ];
             }
-            $grouped[$year]['count']++;
+
+            $grouped[$year]['count'] += $count;
 
             if (!isset($grouped[$year]['months'][$month])) {
                 $grouped[$year]['months'][$month] = [
@@ -156,12 +158,9 @@ class Remd extends ActiveRecord
                     'types' => []
                 ];
             }
-            $grouped[$year]['months'][$month]['count']++;
 
-            if (!isset($grouped[$year]['months'][$month]['types'][$type])) {
-                $grouped[$year]['months'][$month]['types'][$type] = 0;
-            }
-            $grouped[$year]['months'][$month]['types'][$type]++;
+            $grouped[$year]['months'][$month]['count'] += $count;
+            $grouped[$year]['months'][$month]['types'][$type] = $count;
         }
 
         return $grouped;

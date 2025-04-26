@@ -270,14 +270,6 @@ class RemdController extends Controller
 
         $uniqueEmployeesWithDocuments = $uniqueEmployeesWithDocumentsQuery->count();
 
-        $latestDocumentDateQuery = Remd::find()->select('registration_date');
-        if ($dateFrom && $dateTo) {
-            $latestDocumentDateQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
-        }
-        if ($documentType) {
-            $latestDocumentDateQuery->andWhere(['remd.type' => $documentType]);
-        }
-
         $latestDocumentDate = $baseSettings->date_of_update ? $baseSettings->date_of_update : Remd::getLastRegistrationDate();
 
         $employeeName = '';
@@ -317,15 +309,20 @@ class RemdController extends Controller
         $request = Yii::$app->request;
         $q = $request->get('q');
 
+        $uniqueEmployeeIds = RemdEmployee::find()
+            ->select('employee_id')
+            ->distinct()
+            ->column();
+
         $query = Employee::find()
             ->select(['employee.id', 'CONCAT_WS(Char(32), employee.last_name, employee.first_name, employee.middle_name, CONCAT("(", position.name, ")")) AS text'])
             ->joinWith('position')
-            ->innerJoinWith('remds')
+            ->where(['employee.id' => $uniqueEmployeeIds])
             ->groupBy(['employee.id'])
             ->orderBy('employee.last_name');
 
         if ($q) {
-            $query->where(['like', 'CONCAT_WS(Char(32), employee.last_name, employee.first_name, employee.middle_name, position.name)', trim($q)]);
+            $query->andWhere(['like', 'CONCAT_WS(Char(32), employee.last_name, employee.first_name, employee.middle_name, position.name)', trim($q)]);
         }
 
         $results = $query->limit(20)->asArray()->all();
