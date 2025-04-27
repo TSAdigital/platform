@@ -75,6 +75,7 @@ class ImportController extends Controller
                     $email = $this->generateEmail(
                         $userData['email'],
                         substr($userData['firstName'], 0, 2),
+                        substr($userData['middleName'], 0, 2),
                         $userData['lastName']
                     );
 
@@ -196,7 +197,7 @@ class ImportController extends Controller
         );
         $user->auth_key = Yii::$app->security->generateRandomString();
         $user->password_hash = Yii::$app->security->generatePasswordHash($userData['password']);
-        $user->email = $this->generateEmail($userData['email'], substr($userData['firstName'], 0, 2) . substr($userData['middleName'], 0, 2), $userData['lastName']);
+        $user->email = $this->generateEmail($userData['email'], substr($userData['firstName'], 0, 2), substr($userData['middleName'], 0, 2), $userData['lastName']);
         $user->unique_id = Yii::$app->security->generateRandomString(12);
         $user->status = User::STATUS_ACTIVE;
         $user->role = 'user';
@@ -264,9 +265,9 @@ class ImportController extends Controller
      */
     private function generateUsername(string $lastName, string $firstName, string $middleName): string
     {
-        $transliteratedLastName = $this->customTransliterate($lastName);
-        $transliteratedFirstName = $this->customTransliterate($firstName);
-        $transliteratedMiddleName = $this->customTransliterate($middleName);
+        $transliteratedLastName = $this->cleanTransliterated($this->customTransliterate($lastName));
+        $transliteratedFirstName = $this->cleanTransliterated($this->customTransliterate($firstName));
+        $transliteratedMiddleName = $this->cleanTransliterated($this->customTransliterate($middleName));
 
         return $transliteratedLastName
             . $this->getLeadingUppercase($transliteratedFirstName)
@@ -277,23 +278,25 @@ class ImportController extends Controller
      * Генерирует email адрес на основе ФИО
      *
      * Если email указан в файле и валиден - использует его,
-     * иначе генерирует в формате имя.фамилия@mail.local
+     * иначе генерирует в формате имяотчевтво.фамилия@mail.local
      *
      * @param string $email Email из файла (может быть пустым)
      * @param string $firstName Имя
+     * @param string $middleName Имя
      * @param string $lastName Фамилия
      * @return string Email адрес
      */
-    private function generateEmail(string $email, string $firstName, string $lastName): string
+    private function generateEmail(string $email, string $firstName, string $middleName, string $lastName): string
     {
         if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return $email;
         }
 
-        $transliteratedFirstName = strtolower($this->customTransliterate($firstName));
-        $transliteratedLastName = strtolower($this->customTransliterate($lastName));
+        $transliteratedFirstName = strtolower($this->cleanTransliterated($this->customTransliterate($firstName)));
+        $transliteratedMiddleName = strtolower($this->cleanTransliterated($this->customTransliterate($middleName)));
+        $transliteratedLastName = strtolower($this->cleanTransliterated($this->customTransliterate($lastName)));
 
-        return "{$transliteratedFirstName}.{$transliteratedLastName}" . self::DEFAULT_EMAIL_DOMAIN;
+        return "{$transliteratedFirstName}{$transliteratedMiddleName}.{$transliteratedLastName}" . self::DEFAULT_EMAIL_DOMAIN;
     }
 
     /**
@@ -364,6 +367,16 @@ class ImportController extends Controller
         }
 
         return ucfirst($transliterated);
+    }
+
+    /**
+     * Удаляем все символы, кроме английских букв
+     * @param string $string
+     * @return string
+     */
+    private function cleanTransliterated(string $string): string
+    {
+        return preg_replace('/[^a-zA-Z]/', '', $string);
     }
 
     /**
