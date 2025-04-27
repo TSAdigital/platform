@@ -200,6 +200,10 @@ class Remd extends ActiveRecord
 
     public static function getActualStats($year, $type = null)
     {
+        $typeSettings = RemdTypeSetting::getSettings();
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+
         $query = self::find()
             ->where(['YEAR(registration_date)' => $year])
             ->select([
@@ -207,6 +211,10 @@ class Remd extends ActiveRecord
                 'MONTH(registration_date) as month'
             ])
             ->groupBy('MONTH(registration_date)');
+
+        if ($enabledDocTypes) {
+            $query->andWhere(['type' => $enabledDocTypes]);
+        }
 
         if ($type) {
             $query->andWhere(['type' => $type]);
