@@ -87,6 +87,8 @@ class RemdController extends Controller
             'page' => $page,
         ];
 
+        $cacheKey = md5(serialize($cacheKey));
+
         $cache = Yii::$app->cache;
         $cachedData = $cache->get($cacheKey);
 
@@ -291,7 +293,7 @@ class RemdController extends Controller
                 $employeeName = $employee ? $employee->getFullName() : '';
             }
 
-            if ($employeeId) {
+            if ($positionId) {
                 $position = Position::findOne($positionId);
                 $positionName = $position ? $position->name : '';
             }
