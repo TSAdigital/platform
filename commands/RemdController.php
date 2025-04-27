@@ -125,9 +125,8 @@ class RemdController extends Controller
                 $this->stderr("- {$employeeStr}: {$error}\n", BaseConsole::FG_RED);
             }
             throw new \Exception(sprintf(
-                "Обнаружены проблемы с сотрудниками: %d из %d",
-                count($employeesInfo['missing']),
-                $employeesInfo['total']
+                "Обнаружены проблемы с сотрудниками: %d",
+                count($employeesInfo['missing'])
             ));
         }
 
@@ -294,7 +293,7 @@ class RemdController extends Controller
             $dbStr = trim(preg_replace('/\s+/u', ' ', $dbStr));
 
 
-            if ($dbStr === $searchStr) {
+            if ($dbStr == $searchStr) {
                 return $returnObject ? $employee : true;
             }
         }
