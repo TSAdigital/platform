@@ -82,6 +82,7 @@ $periodLabels[] = 'Год ' . $yearPercent . '%';
 $periodPlanData[] = $yearPlan;
 $periodActualData[] = $yearActual;
 $periodPercentData[] = $yearPercent;
+$chartType = $chartType ? $chartType : 'linear';
 
 $this->registerJsFile('@web/js/chart.js', ['position' => View::POS_END]);
 $this->registerJsFile('@web/js/chartjs-plugin-datalabels.js', ['position' => View::POS_END]);

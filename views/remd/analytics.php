@@ -12,6 +12,7 @@ $this->params['breadcrumbs'][] = ['label' => 'Зарегистрированны
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 
+<?php if ($data['general']["plan"]) : ?>
 <div class="card">
     <div class="card-body">
         <div class="d-flex flex-column flex-xl-row align-items-start">
@@ -81,3 +82,13 @@ $this->params['breadcrumbs'][] = $this->title;
         ]) ?>
     </div>
 </div>
+
+<?php else: ?>
+
+    <div class="card mt-3">
+        <div class="card-body">
+            Плановые показатели отсутствуют
+        </div>
+    </div>
+
+<?php endif; ?>
