@@ -249,9 +249,16 @@ class RemdController extends Controller
     protected function processEmployees($employeesString, $remdId)
     {
         $employees = array_map('trim', explode(';', $employeesString));
+        $processedEmployeeIds = [];
 
         foreach ($employees as $employeeStr) {
             $employee = $this->parseEmployee($employeeStr, true);
+
+            if (isset($processedEmployeeIds[$employee->id])) {
+                continue;
+            }
+
+            $processedEmployeeIds[$employee->id] = true;
 
             $relation = new RemdEmployee([
                 'remd_id' => $remdId,
