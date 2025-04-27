@@ -66,7 +66,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                     </div>
                 </div>
-                <h1 class="mt-1 mb-0"><?= $totalDocuments ?></h1>
+                <h1 class="mt-1 mb-0"><?= number_format($totalDocuments, 0, '', ' ') ?></h1>
             </div>
         </div>
     </div>
@@ -102,7 +102,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         </div>
                     </div>
                 </div>
-                <h1 class="mt-1 mb-0"><?= $uniqueEmployeesWithDocuments ?></h1>
+                <h1 class="mt-1 mb-0"><?= number_format($uniqueEmployeesWithDocuments, 0, '', ' ') ?></h1>
             </div>
         </div>
     </div>
@@ -135,7 +135,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
                 <?php foreach ($uniqueDocumentTypes as $type): ?>
 
-                <p class="mb-2 mb-md-0"><?= htmlspecialchars($type['type']) ?>: <?= $type['count'] ?></p>
+                    <p class="mb-2 mb-md-0"><?= htmlspecialchars($type['type']) ?>: <span class="text-nowrap fw-bold"><?= number_format($type['count'], 0, '', ' ') ?></span></p>
 
                 <?php endforeach; ?>
 
@@ -177,10 +177,14 @@ $this->params['breadcrumbs'][] = $this->title;
         <div class="employee-row" data-id="<?= $item['id'] ?>">
             <div class="row border-top">
                 <div class="col-auto text-center py-2 justify-content-center align-self-center fixed-column"><?= $rowNumber ?></div>
-                <div class="col py-2 justify-content-center align-self-center"><?= htmlspecialchars($item['full_name']) ?></div>
+                <div class="col py-2 justify-content-center align-self-center">
+                    <?= htmlspecialchars($item['full_name']) ?>
+                    <div class="d-block d-md-none"><?= htmlspecialchars($item['position']) ?></div>
+                    <div class="d-block d-md-none">Всего документов: <?= number_format($item['total_documents'], 0, '', ' ') ?></div>
+                </div>
                 <div class="col-md-3 d-none d-md-block py-2 justify-content-center align-self-center"><?= htmlspecialchars($item['position']) ?></div>
-                <div class="col-md-3 d-none d-md-block py-2 text-center justify-content-center align-self-center"><?= $item['total_documents'] ?></div>
-                <div class="col-auto text-center py-2 fixed-column">
+                <div class="col-md-3 d-none d-md-block py-2 text-center justify-content-center align-self-center"><?= number_format($item['total_documents'], 0, '', ' ') ?></div>
+                <div class="col-auto text-center py-2 fixed-column justify-content-center align-self-center">
                     <a href="javascript:void(0)" class="toggle-details text-primary text-decoration-none">
                         <?= Html::tag('svg', '', [
                             'data-feather' => 'chevron-down',
@@ -198,7 +202,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php foreach ($item['document_types'] as $type): ?>
             <?php $isLast = ($type === array_key_last($item['document_types'])); ?>
 
-                <p class="<?= $isLast ? 'mb-0' : 'mb-2 mb-md-1' ?>"><?= htmlspecialchars($type['type']) ?>: <?= $type['count'] ?></p>
+                <p class="<?= $isLast ? 'mb-0' : 'mb-2 mb-md-1' ?>"><?= htmlspecialchars($type['type']) ?>: <span class="text-nowrap fw-bold"><?= number_format($type['count'], 0, '', ' ') ?></span></p>
 
             <?php endforeach; ?>
 
@@ -312,10 +316,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'url' => Url::to(['remd/employee-list']),
                         'dataType' => 'json',
                         'data' => new JsExpression('function(params) {
-                            var enabledTypes = $(this).data("enabledDocTypes");
                             return {
                                 q: params.term,
-                                enabledDocTypes: enabledTypes ? JSON.stringify(enabledTypes) : null
                             };
                         }'),
                         'delay' => 300,
@@ -343,10 +345,8 @@ $this->params['breadcrumbs'][] = $this->title;
                         'url' => Url::to(['remd/position-list']),
                         'dataType' => 'json',
                         'data' => new JsExpression('function(params) {
-                            var enabledTypes = $(this).data("enabledDocTypes");
                             return {
                                 q: params.term,
-                                enabledDocTypes: enabledTypes ? JSON.stringify(enabledTypes) : null
                             };
                         }'),
                         'delay' => 300,
