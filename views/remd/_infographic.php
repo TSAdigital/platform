@@ -28,14 +28,10 @@ $quarters = [
     '4 кв' => ['field' => 'q4', 'months' => [10, 11, 12]]
 ];
 
-$labels = [];
-$planData = [];
-$actualData = [];
-$percentData = [];
-$quarterLabels = [];
-$quarterPlanData = [];
-$quarterActualData = [];
-$quarterPercentData = [];
+$monthLabels = [];
+$monthPlanData = [];
+$monthActualData = [];
+$monthPercentData = [];
 
 foreach ($months as $monthNum => $monthInfo) {
     $monthPlan = $plan->{$monthInfo['field']} ?? 0;
@@ -47,11 +43,16 @@ foreach ($months as $monthNum => $monthInfo) {
 
     $percent = $monthPlan ? round(($monthActual / $monthPlan) * 100) : 0;
 
-    $labels[] = $monthInfo['name'] . ' ' . $percent . '%';
-    $planData[] = $monthPlan;
-    $actualData[] = $monthActual;
-    $percentData[] = $percent;
+    $monthLabels[] = $monthInfo['name'] . ' ' . $percent . '%';
+    $monthPlanData[] = $monthPlan;
+    $monthActualData[] = $monthActual;
+    $monthPercentData[] = $percent;
 }
+
+$periodLabels = [];
+$periodPlanData = [];
+$periodActualData = [];
+$periodPercentData = [];
 
 foreach ($quarters as $qName => $qData) {
     $qPlan = $plan->{$qData['field']} ?? 0;
@@ -67,107 +68,175 @@ foreach ($quarters as $qName => $qData) {
 
     $percent = $qPlan ? round(($qActual / $qPlan) * 100) : 0;
 
-    $quarterLabels[] = $qName . ' ' . $percent . '%';
-    $quarterPlanData[] = $qPlan;
-    $quarterActualData[] = $qActual;
-    $quarterPercentData[] = $percent;
+    $periodLabels[] = $qName . ' ' . $percent . '%';
+    $periodPlanData[] = $qPlan;
+    $periodActualData[] = $qActual;
+    $periodPercentData[] = $percent;
 }
 
 $yearPlan = $plan->year_plan ?? 0;
 $yearActual = array_sum($actual);
 $yearPercent = $yearPlan ? round(($yearActual / $yearPlan) * 100) : 0;
 
-$allLabels = array_merge($labels, $quarterLabels, ['Год ' . $yearPercent . '%']);
-$allPlanData = array_merge($planData, $quarterPlanData, [$yearPlan]);
-$allActualData = array_merge($actualData, $quarterActualData, [$yearActual]);
-$allPercentData = array_merge($percentData, $quarterPercentData, [$yearPercent]);
-$chartType = $chartType ? $chartType : 'logarithmic';
-?>
+$periodLabels[] = 'Год ' . $yearPercent . '%';
+$periodPlanData[] = $yearPlan;
+$periodActualData[] = $yearActual;
+$periodPercentData[] = $yearPercent;
 
-<div class="chart-container" style="position: relative; height:400px; margin-top:20px;">
-    <canvas id="chart-<?= $plan ? $plan->id : 'general' ?>"></canvas>
-</div>
-
-<?php
 $this->registerJsFile('@web/js/chart.js', ['position' => View::POS_END]);
 $this->registerJsFile('@web/js/chartjs-plugin-datalabels.js', ['position' => View::POS_END]);
 ?>
 
+<div class="row">
+    <div class="col-xl-8">
+        <div class="chart-container" style="position: relative; height:400px;">
+            <canvas id="chart-month-<?= $plan ? $plan->id : 'general' ?>"></canvas>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="chart-container" style="position: relative; height:400px;">
+            <canvas id="chart-period-<?= $plan ? $plan->id : 'general' ?>"></canvas>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        var ctx = document.getElementById('chart-<?= $plan ? $plan->id : 'general' ?>').getContext('2d');
-
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: <?= Json::encode($allLabels) ?>,
-                datasets: [
-                    {
-                        label: 'План',
-                        backgroundColor: 'rgba(220, 53, 69, 0.7)',
-                        borderColor: 'rgba(220, 53, 69, 1)',
-                        borderWidth: 1,
-                        data: <?= Json::encode($allPlanData) ?>,
-                        order: 2
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                datalabels: {
+                    display: function(context) {
+                        return window.innerWidth > 700;
                     },
-                    {
-                        label: 'Факт',
-                        backgroundColor: 'rgba(59, 125, 221, 0.7)',
-                        borderColor: 'rgba(59, 125, 221, 1)',
-                        borderWidth: 1,
-                        data: <?= Json::encode($allActualData) ?>,
-                        order: 1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        type: '<?= $chartType ?>',
-                        ticks: {
-                            callback: function(value) {
-                                return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-                            }
-                        }
+                    anchor: 'end',
+                    align: 'end',
+                    color: 'black',
+                    font: {
+                        size: '10'
+                    },
+                    formatter: function(value) {
+                        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
                     }
                 },
-                plugins: {
-                    datalabels: {
-                        display: function(context) {
-                            return window.innerWidth > 700;
-                        },
-                        anchor: 'end',
-                        align: 'end',
-                        color: 'black',
-                        font: {
-                            size: '10'
-                        },
-                        formatter: function(value) {
-                            return value;
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                var label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                label += context.raw.toLocaleString();
-
-                                if (context.datasetIndex === 1 && <?= Json::encode($allPercentData) ?>[context.dataIndex] !== 0) {
-                                    label += ' (' + <?= Json::encode($allPercentData) ?>[context.dataIndex] + '%)';
-                                }
-
-                                return label;
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
                             }
+                            label += context.raw.toLocaleString();
+
+                            var percentData = [];
+                            if (context.chart.canvas.id.includes('month')) {
+                                percentData = <?= Json::encode($monthPercentData) ?>;
+                            } else {
+                                percentData = <?= Json::encode($periodPercentData) ?>;
+                            }
+
+                            if (context.datasetIndex === 1 && percentData[context.dataIndex] !== 0) {
+                                label += ' (' + percentData[context.dataIndex] + '%)';
+                            }
+
+                            return label;
                         }
                     }
                 }
             }
-            ,plugins: [ChartDataLabels]
-        });
+        };
+
+        new Chart(
+            document.getElementById('chart-month-<?= $plan ? $plan->id : 'general' ?>').getContext('2d'),
+            {
+                type: 'bar',
+                data: {
+                    labels: <?= Json::encode($monthLabels) ?>,
+                    datasets: [
+                        {
+                            label: 'План',
+                            backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            borderWidth: 1,
+                            data: <?= Json::encode($monthPlanData) ?>,
+                            order: 2
+                        },
+                        {
+                            label: 'Факт',
+                            backgroundColor: 'rgba(59, 125, 221, 0.7)',
+                            borderColor: 'rgba(59, 125, 221, 1)',
+                            borderWidth: 1,
+                            data: <?= Json::encode($monthActualData) ?>,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        y: {
+                            type: <?= Json::encode($chartType) ?>,
+                            suggestedMax: Math.max(
+                                ...<?= Json::encode($monthPlanData) ?>,
+                                ...<?= Json::encode($monthActualData) ?>
+                            ) * 1.10,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            }
+        );
+
+        new Chart(
+            document.getElementById('chart-period-<?= $plan ? $plan->id : 'general' ?>').getContext('2d'),
+            {
+                type: 'bar',
+                data: {
+                    labels: <?= Json::encode($periodLabels) ?>,
+                    datasets: [
+                        {
+                            label: 'План',
+                            backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            borderWidth: 1,
+                            data: <?= Json::encode($periodPlanData) ?>,
+                            order: 2
+                        },
+                        {
+                            label: 'Факт',
+                            backgroundColor: 'rgba(59, 125, 221, 0.7)',
+                            borderColor: 'rgba(59, 125, 221, 1)',
+                            borderWidth: 1,
+                            data: <?= Json::encode($periodActualData) ?>,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        y: {
+                            type: <?= Json::encode($chartType) ?>,
+                            suggestedMax: Math.max(
+                                ...<?= Json::encode($periodPlanData) ?>,
+                                ...<?= Json::encode($periodActualData) ?>
+                            ) * 1.10,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            }
+        );
     });
 </script>
