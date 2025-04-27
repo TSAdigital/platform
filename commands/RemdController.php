@@ -266,61 +266,40 @@ class RemdController extends Controller
     }
 
     /**
-     * Разбирает строку с информацией о сотруднике
+     * Разбирает строку с информацией о сотруднике путем полного сравнения строки
      *
-     * Формат строки: "Фамилия Имя Отчество ДД.ММ.ГГГГ"
-     *
-     * @param string $employeeStr Строка с информацией о сотруднике
-     * @param bool $returnObject Если true, возвращает объект Employee, иначе bool
-     * @return array|bool|ActiveRecord
-     * @throws \Exception Если неверный формат или сотрудник не найден
+     * @param string $employeeStr Строка в формате "Фамилия Имя Отчество ДД.ММ.ГГГГ"
+     * @param bool $returnObject Если true, возвращает объект Employee
+     * @return Employee|bool
+     * @throws \Exception
      */
     protected function parseEmployee($employeeStr, $returnObject = false)
     {
-        $parts = preg_split('/\s+/', trim($employeeStr));
+        $searchStr = trim(preg_replace('/\s+/u', ' ', $employeeStr));
 
-        if (count($parts) < 2) {
-            throw new \Exception("Неверный формат данных сотрудника");
+        if (!preg_match('/^(.+)\s(\d{2}\.\d{2}\.\d{4})$/', $searchStr, $matches)) {
+            throw new \Exception("Неверный формат: {$searchStr}");
         }
 
-        $birthDateStr = null;
-        foreach ([3, 2] as $position) {
-            if (isset($parts[$position]) && preg_match('/^\d{2}\.\d{2}\.\d{4}$/', $parts[$position])) {
-                $birthDateStr = $parts[$position];
-                unset($parts[$position]);
-                break;
+        $employees = Employee::find()->all();
+
+        foreach ($employees as $employee) {
+            $dbStr = implode(' ', [
+                $employee->last_name,
+                $employee->first_name,
+                $employee->middle_name,
+                \Yii::$app->formatter->asDate($employee->birth_date, 'dd.MM.yyyy')
+            ]);
+
+            $dbStr = trim(preg_replace('/\s+/u', ' ', $dbStr));
+
+
+            if ($dbStr === $searchStr) {
+                return $returnObject ? $employee : true;
             }
         }
 
-        if (!$birthDateStr) {
-            throw new \Exception("Не найдена дата рождения");
-        }
-
-        $birthDate = \DateTime::createFromFormat('d.m.Y', $birthDateStr);
-        if (!$birthDate) {
-            throw new \Exception("Неверный формат даты рождения");
-        }
-        $birthDate = $birthDate->format('Y-m-d');
-
-        $fioParts = array_values($parts);
-        $lastName = $fioParts[0];
-        $firstName = $fioParts[1];
-        $middleName = count($fioParts) > 2 ? $fioParts[2] : null;
-
-        $employee = Employee::find()
-            ->where([
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'birth_date' => $birthDate,
-            ])
-            ->andFilterWhere(['middle_name' => $middleName])
-            ->one();
-
-        if (!$employee) {
-            throw new \Exception("Сотрудник не найден в системе");
-        }
-
-        return $returnObject ? $employee : true;
+        throw new \Exception("Сотрудник не найден: {$searchStr}");
     }
 
     /**
