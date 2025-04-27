@@ -15775,4 +15775,8 @@ select.is-invalid + .select2-container--krajee-bs5 .select2-selection__rendered 
     outline: none !important;
     box-shadow: none !important;
 }
+
+.accordion-item:not(:first-of-type) {
+    border-top: 1px solid #dee2e6 !important;
+}
 /*# sourceMappingURL=app.css.map*/
