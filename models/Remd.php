@@ -129,10 +129,13 @@ class Remd extends ActiveRecord
         ];
 
         $cacheKey = [
-            'remd_employee',
+            'lk',
+            'remd_employee' => $employeeId,
             'enabledDocTypes' => $enabledDocTypes,
             'lkDocumentFilterEnabled' => $lkDocumentFilterEnabled
         ];
+
+        $cacheKey = md5(serialize($cacheKey));
 
         $cache = Yii::$app->cache;
         $grouped = $cache->get($cacheKey);
