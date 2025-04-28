@@ -178,7 +178,7 @@ class SiteController extends Controller
 
         $certificates = Certificate::find()->where(['employee_id' => $employeeId, 'status' => Certificate::STATUS_ACTIVE])->all();
 
-        $groupedDocuments = Remd::getGroupedByEmployee($employeeId);
+        $groupedDocuments = $employeeId ? Remd::getGroupedByEmployee($employeeId) : null;
 
         return $this->render('profile', [
             'qrCodeGenerator' => $qrCodeGenerator,

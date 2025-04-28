@@ -114,6 +114,13 @@ class Remd extends ActiveRecord
      */
     public static function getGroupedByEmployee($employeeId)
     {
+        $baseSettings = RemdBaseSetting::getSettings();
+        $typeSettings = RemdTypeSetting::getSettings();
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+        $lkDocumentFilterEnabled = $baseSettings->lk_document_filter_enabled;
+        $useCaching = $baseSettings->use_caching;
+
         $russianMonths = [
             1 => 'Январь', 2 => 'Февраль', 3 => 'Март',
             4 => 'Апрель', 5 => 'Май', 6 => 'Июнь',
@@ -121,7 +128,11 @@ class Remd extends ActiveRecord
             10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'
         ];
 
-        $cacheKey = 'remd_employee_grouped_' . $employeeId;
+        $cacheKey = [
+            'remd_employee',
+            'enabledDocTypes' => $enabledDocTypes,
+            'lkDocumentFilterEnabled' => $lkDocumentFilterEnabled
+        ];
 
         $cache = Yii::$app->cache;
         $grouped = $cache->get($cacheKey);
@@ -139,6 +150,10 @@ class Remd extends ActiveRecord
                 ])
                 ->groupBy(['year', 'month', 'type'])
                 ->orderBy(['year' => SORT_DESC, 'month' => SORT_DESC]);
+
+            if ($lkDocumentFilterEnabled && $enabledDocTypes) {
+                $query->andWhere(['type' => $enabledDocTypes]);
+            }
 
             $results = $query->asArray()->all();
             $grouped = [];
@@ -171,7 +186,9 @@ class Remd extends ActiveRecord
                 $grouped[$year]['months'][$month]['types'][$type] = $count;
             }
 
-            $cache->set($cacheKey, $grouped, 0);
+            if ($useCaching) {
+                $cache->set($cacheKey, $grouped, 0);
+            }
         }
 
         return $grouped;
