@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use Yii;
 use yii\base\InvalidConfigException;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveQuery;
@@ -120,47 +121,57 @@ class Remd extends ActiveRecord
             10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'
         ];
 
-        $query = self::find()
-            ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
-            ->where(['remd_employee.employee_id' => $employeeId])
-            ->select([
-                'YEAR(registration_date) as year',
-                'MONTH(registration_date) as month',
-                'type',
-                'COUNT(*) as count'
-            ])
-            ->groupBy(['year', 'month', 'type'])
-            ->orderBy(['year' => SORT_DESC, 'month' => SORT_DESC]);
+        $cacheKey = 'remd_employee_grouped_' . $employeeId;
 
-        $results = $query->asArray()->all();
-        $grouped = [];
+        $cache = Yii::$app->cache;
+        $grouped = $cache->get($cacheKey);
 
-        foreach ($results as $row) {
-            $year = $row['year'];
-            $month = $row['month'];
-            $monthName = $russianMonths[$month] ?? date('F', mktime(0, 0, 0, $month, 10));
-            $type = $row['type'];
-            $count = $row['count'];
+        if ($grouped === false) {
 
-            if (!isset($grouped[$year])) {
-                $grouped[$year] = [
-                    'count' => 0,
-                    'months' => []
-                ];
+            $query = self::find()
+                ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
+                ->where(['remd_employee.employee_id' => $employeeId])
+                ->select([
+                    'YEAR(registration_date) as year',
+                    'MONTH(registration_date) as month',
+                    'type',
+                    'COUNT(*) as count'
+                ])
+                ->groupBy(['year', 'month', 'type'])
+                ->orderBy(['year' => SORT_DESC, 'month' => SORT_DESC]);
+
+            $results = $query->asArray()->all();
+            $grouped = [];
+
+            foreach ($results as $row) {
+                $year = $row['year'];
+                $month = $row['month'];
+                $monthName = $russianMonths[$month] ?? date('F', mktime(0, 0, 0, $month, 10));
+                $type = $row['type'];
+                $count = $row['count'];
+
+                if (!isset($grouped[$year])) {
+                    $grouped[$year] = [
+                        'count' => 0,
+                        'months' => []
+                    ];
+                }
+
+                $grouped[$year]['count'] += $count;
+
+                if (!isset($grouped[$year]['months'][$month])) {
+                    $grouped[$year]['months'][$month] = [
+                        'name' => $monthName,
+                        'count' => 0,
+                        'types' => []
+                    ];
+                }
+
+                $grouped[$year]['months'][$month]['count'] += $count;
+                $grouped[$year]['months'][$month]['types'][$type] = $count;
             }
 
-            $grouped[$year]['count'] += $count;
-
-            if (!isset($grouped[$year]['months'][$month])) {
-                $grouped[$year]['months'][$month] = [
-                    'name' => $monthName,
-                    'count' => 0,
-                    'types' => []
-                ];
-            }
-
-            $grouped[$year]['months'][$month]['count'] += $count;
-            $grouped[$year]['months'][$month]['types'][$type] = $count;
+            $cache->set($cacheKey, $grouped, 0);
         }
 
         return $grouped;
