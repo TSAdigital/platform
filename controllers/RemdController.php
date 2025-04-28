@@ -595,43 +595,65 @@ class RemdController extends Controller
 
         $chartType = $model->chart_type;
 
-        $generalPlan = RemdPlan::find()
-            ->where(['year' => $year])
-            ->andWhere(['or', ['type' => null], ['type' => '']])
-            ->one();
-
-        $typedPlans = RemdPlan::find()
-            ->where(['year' => $year])
-            ->andWhere(['IS NOT', 'type', null])
-            ->andWhere(['<>', 'type', ''])
-            ->all();
-
-        $generalActual = Remd::getActualStats($year);
-
-        $data = [
-            'general' => [
-                'plan' => $generalPlan,
-                'actual' => $generalActual,
-            ],
-            'typed' => [],
+        $cacheKey = [
+            'remd_analytics',
+            'year' => $year,
             'hideEmptyMonths' => $hideEmptyMonths,
+            'chartType' => $chartType,
         ];
 
-        foreach ($typedPlans as $plan) {
-            if (!empty($plan->type)) {
-                $data['typed'][] = [
-                    'plan' => $plan,
-                    'actual' => Remd::getActualStats($year, $plan->type),
-                    'type' => $plan->type,
-                ];
+        $cacheKey = md5(serialize($cacheKey));
+
+        $cache = Yii::$app->cache;
+        $cachedData = $cache->get($cacheKey);
+
+        if ($cachedData === false) {
+            $generalPlan = RemdPlan::find()
+                ->where(['year' => $year])
+                ->andWhere(['or', ['type' => null], ['type' => '']])
+                ->one();
+
+            $typedPlans = RemdPlan::find()
+                ->where(['year' => $year])
+                ->andWhere(['IS NOT', 'type', null])
+                ->andWhere(['<>', 'type', ''])
+                ->all();
+
+            $generalActual = Remd::getActualStats($year);
+
+            $data = [
+                'general' => [
+                    'plan' => $generalPlan,
+                    'actual' => $generalActual,
+                ],
+                'typed' => [],
+                'hideEmptyMonths' => $hideEmptyMonths,
+            ];
+
+            foreach ($typedPlans as $plan) {
+                if (!empty($plan->type)) {
+                    $data['typed'][] = [
+                        'plan' => $plan,
+                        'actual' => Remd::getActualStats($year, $plan->type),
+                        'type' => $plan->type,
+                    ];
+                }
             }
+
+            $dataToCache = [
+                'year' => $year,
+                'data' => $data,
+                'chartType' => $chartType,
+            ];
+
+            if ($model->use_caching) {
+                $cache->set($cacheKey, $dataToCache, 0);
+            }
+        } else {
+            $dataToCache = $cachedData;
         }
 
-        return $this->render('analytics', [
-            'year' => $year,
-            'data' => $data,
-            'chartType' => $chartType,
-        ]);
+        return $this->render('analytics', $dataToCache);
     }
 
     /**
