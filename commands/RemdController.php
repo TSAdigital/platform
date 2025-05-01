@@ -6,10 +6,9 @@ use app\models\Employee;
 use app\models\Remd;
 use app\models\RemdEmployee;
 use moonland\phpexcel\Excel;
+use Yii;
 use yii\console\Controller;
 use yii\console\ExitCode;
-use yii\db\ActiveRecord;
-use yii\db\Exception;
 use yii\helpers\BaseConsole;
 use yii\helpers\Console;
 
@@ -21,30 +20,21 @@ class RemdController extends Controller
         'Дата регистрации',
         'Подписавшие сотрудники'
     ];
-
     const FILE_PATH = '@app/web/import/remd.xlsx';
 
     /**
      * Проверяет файл перед импортом
-     *
-     * Проверяет:
-     * - наличие файла
-     * - наличие обязательных колонок
-     * - корректность данных сотрудников
      *
      * @return int Код завершения (ExitCode::OK в случае успеха)
      */
     public function actionCheck()
     {
         $this->stdout("=== ПРОВЕРКА ФАЙЛА ===\n", BaseConsole::FG_YELLOW);
-
         try {
             $data = $this->loadAndValidateFile();
             $this->checkEmployees($data);
-
             $this->stdout("\nПРОВЕРКА УСПЕШНО ЗАВЕРШЕНА. Можно выполнять импорт.\n", BaseConsole::FG_GREEN);
             return ExitCode::OK;
-
         } catch (\Exception $e) {
             $this->stderr("\nОШИБКА: " . $e->getMessage() . "\n", BaseConsole::FG_RED);
             return ExitCode::DATAERR;
@@ -53,24 +43,82 @@ class RemdController extends Controller
 
     /**
      * Импортирует данные из файла в базу данных
-     *
-     * @return int Код завершения (ExitCode::OK в случае успеха)
      */
     public function actionImport()
     {
-        $this->stdout("=== ИМПОРТ ДАННЫХ ===\n", BaseConsole::FG_YELLOW);
+        $startTime = time();
 
-        try {
-            $data = $this->loadAndValidateFile();
-            $report = $this->importData($data);
-            $this->printReport($report);
+        $this->stdout("=== НАЧАЛО ИМПОРТА ===\n", BaseConsole::FG_YELLOW);
 
-            return empty($report['errors']) ? ExitCode::OK : ExitCode::SOFTWARE;
+        $data = $this->loadAndValidateFile();
 
-        } catch (\Exception $e) {
-            $this->stderr("\nФАТАЛЬНАЯ ОШИБКА: " . $e->getMessage() . "\n", BaseConsole::FG_RED);
-            return ExitCode::IOERR;
+        $employeesMap = $this->loadAllEmployeesMap();
+
+        $success = 0;
+        $skip = 0;
+        $errors = 0;
+
+        foreach ($data as $datum) {
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                $remd = new Remd();
+                $remd->unique_code = trim($datum['Идентификатор записи']);
+                $remd->registration_date = $this->processDate($datum['Дата регистрации']);
+                $remd->type = $this->processDocumentType($datum['Вид документа']);
+
+                if ($remd->save()) {
+                    $employees = explode(';', $datum['Подписавшие сотрудники']);
+                    $employees = array_map('trim', $employees);
+                    $employees = array_unique($employees);
+
+                    $allEmployeesSaved = true;
+                    foreach ($employees as $employee) {
+                        $remdEmployee = new RemdEmployee();
+                        $remdEmployee->remd_id = $remd->id;
+                        $remdEmployee->employee_id = $this->getEmployeeId($employee, $employeesMap);
+
+                        if (!$remdEmployee->save()) {
+                            $allEmployeesSaved = false;
+                            break;
+                        }
+                    }
+
+                    if ($allEmployeesSaved) {
+                        $transaction->commit();
+                        $success++;
+                    } else {
+                        $transaction->rollBack();
+                        $errors++;
+                    }
+                } else {
+                    $transaction->rollBack();
+                    $skip++;
+                }
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                $errors++;
+            }
         }
+
+        $endTime = time();
+        $duration = ($endTime - $startTime) / 60;
+
+        $this->stdout("Импортировано: $success документов\n", BaseConsole::FG_GREEN);
+        $this->stdout("Пропущено: $skip документов\n", BaseConsole::FG_YELLOW);
+        $this->stdout("Ошибок: $errors документов\n", BaseConsole::FG_RED);
+        $this->stdout("Время выполнения: " . round($duration, 2) . " мин\n", BaseConsole::FG_BLUE);
+
+        $this->stdout("=== ИМПОРТ ЗАВЕРШЕН ===\n", BaseConsole::FG_YELLOW);
+    }
+
+    /**
+     * Получает идентификатор сотрудника
+     *
+     * @return integer|null
+     */
+    private function getEmployeeId($employee, $employeesMap) {
+        $value = $employeesMap[$employee];
+        return $value ?? null;
     }
 
     /**
@@ -82,7 +130,6 @@ class RemdController extends Controller
     protected function loadAndValidateFile()
     {
         $filePath = \Yii::getAlias(self::FILE_PATH);
-
         if (!file_exists($filePath)) {
             throw new \Exception("Файл не найден: {$filePath}");
         }
@@ -118,7 +165,6 @@ class RemdController extends Controller
     protected function checkEmployees($data)
     {
         $employeesInfo = $this->collectEmployeesInfo($data);
-
         if (!empty($employeesInfo['missing'])) {
             $this->stderr("\nНАЙДЕНЫ ПРОБЛЕМЫ:\n", BaseConsole::FG_RED);
             foreach ($employeesInfo['missing'] as $employeeStr => $error) {
@@ -131,7 +177,7 @@ class RemdController extends Controller
         }
 
         $this->stdout(sprintf(
-            "Все сотрудники в порядке: проверено %d уникальных сотрудников\n",
+            "Все сотрудники в порядке: проверено %d сотрудников\n",
             $employeesInfo['unique']
         ), Console::FG_GREEN);
     }
@@ -140,10 +186,7 @@ class RemdController extends Controller
      * Собирает информацию о сотрудниках
      *
      * @param array $data Данные из файла
-     * @return array Массив с информацией о сотрудниках:
-     *              - total: общее количество упоминаний
-     *              - unique: количество уникальных сотрудников
-     *              - missing: проблемы с сотрудниками (если есть)
+     * @return array Массив с информацией о сотрудниках
      */
     protected function collectEmployeesInfo($data)
     {
@@ -153,13 +196,13 @@ class RemdController extends Controller
             'missing' => []
         ];
 
+        $allEmployees = $this->loadAllEmployeesMap();
         $processedEmployees = [];
 
         foreach ($data as $row) {
             if (empty($row['Подписавшие сотрудники'])) continue;
 
             $employees = array_map('trim', explode(';', $row['Подписавшие сотрудники']));
-
             foreach ($employees as $employeeStr) {
                 $result['total']++;
                 $employeeKey = md5($employeeStr);
@@ -170,7 +213,7 @@ class RemdController extends Controller
                 $result['unique']++;
 
                 try {
-                    $this->parseEmployee($employeeStr);
+                    $this->parseEmployeeFast($employeeStr, $allEmployees);
                 } catch (\Exception $e) {
                     $result['missing'][$employeeStr] = $e->getMessage();
                 }
@@ -181,105 +224,14 @@ class RemdController extends Controller
     }
 
     /**
-     * Импортирует данные в базу
-     *
-     * @param array $data Данные для импорта
-     * @return array Отчет об импорте:
-     *              - imported: количество успешно импортированных записей
-     *              - skipped: количество пропущенных записей (дубликаты)
-     *              - errors: ошибки импорта
-     */
-    protected function importData($data)
-    {
-        $report = [
-            'imported' => 0,
-            'skipped' => 0,
-            'errors' => []
-        ];
-
-        foreach ($data as $row) {
-            $transaction = \Yii::$app->db->beginTransaction();
-            try {
-                if (Remd::find()->where(['unique_code' => $row['Идентификатор записи']])->exists()) {
-                    $report['skipped']++;
-                    $transaction->rollBack();
-                    continue;
-                }
-
-                $remd = new Remd([
-                    'unique_code' => $row['Идентификатор записи'],
-                    'type' => $this->processDocumentType($row['Вид документа']),
-                    'registration_date' => $this->processDate($row['Дата регистрации']),
-                ]);
-
-                if (!$remd->save()) {
-                    throw new \Exception("Ошибка сохранения REMD: " . implode(', ', $remd->getFirstErrors()));
-                }
-
-                if (!empty($row['Подписавшие сотрудники'])) {
-                    $this->processEmployees($row['Подписавшие сотрудники'], $remd->id);
-                }
-
-                $transaction->commit();
-                $report['imported']++;
-
-            } catch (\Exception $e) {
-                $transaction->rollBack();
-                $errorMessage = $e->getMessage();
-
-                if (strpos($errorMessage, 'Сотрудник не найден') !== false) {
-                    $employeeStr = $this->extractEmployeeFromError($row['Подписавшие сотрудники']);
-                    $report['errors'][$row['Идентификатор записи']] = "Сотрудник не найден: " . $employeeStr;
-                } else {
-                    $report['errors'][$row['Идентификатор записи']] = $errorMessage;
-                }
-            }
-        }
-
-        return $report;
-    }
-
-    /**
-     * Обрабатывает сотрудников для связи с РЕМД
-     *
-     * @param string $employeesString Строка с сотрудниками (разделены точкой с запятой)
-     * @param int $remdId ID РЕМД записи
-     * @throws Exception Если возникла ошибка при сохранении связи
-     */
-    protected function processEmployees($employeesString, $remdId)
-    {
-        $employees = array_map('trim', explode(';', $employeesString));
-        $processedEmployeeIds = [];
-
-        foreach ($employees as $employeeStr) {
-            $employee = $this->parseEmployee($employeeStr, true);
-
-            if (isset($processedEmployeeIds[$employee->id])) {
-                continue;
-            }
-
-            $processedEmployeeIds[$employee->id] = true;
-
-            $relation = new RemdEmployee([
-                'remd_id' => $remdId,
-                'employee_id' => $employee->id,
-            ]);
-
-            if (!$relation->save()) {
-                throw new \Exception("Ошибка сохранения связи: " . implode(', ', $relation->getFirstErrors()));
-            }
-        }
-    }
-
-    /**
-     * Разбирает строку с информацией о сотруднике путем полного сравнения строки
+     * Быстрая проверка сотрудника по предзагруженному массиву
      *
      * @param string $employeeStr Строка в формате "Фамилия Имя Отчество ДД.ММ.ГГГГ"
-     * @param bool $returnObject Если true, возвращает объект Employee
-     * @return Employee|bool
+     * @param array $employeesMap Ассоциативный массив всех сотрудников
+     * @return int ID сотрудника
      * @throws \Exception
      */
-    protected function parseEmployee($employeeStr, $returnObject = false)
+    protected function parseEmployeeFast($employeeStr, $employeesMap)
     {
         $searchStr = trim(preg_replace('/\s+/u', ' ', $employeeStr));
 
@@ -287,70 +239,61 @@ class RemdController extends Controller
             throw new \Exception("Неверный формат: {$searchStr}");
         }
 
-        $employees = Employee::find()->all();
-
-        foreach ($employees as $employee) {
-            $dbStr = implode(' ', [
-                $employee->last_name,
-                $employee->first_name,
-                $employee->middle_name,
-                \Yii::$app->formatter->asDate($employee->birth_date, 'dd.MM.yyyy')
-            ]);
-
-            $dbStr = trim(preg_replace('/\s+/u', ' ', $dbStr));
-
-
-            if ($dbStr == $searchStr) {
-                return $returnObject ? $employee : true;
-            }
+        if (!isset($employeesMap[$searchStr])) {
+            throw new \Exception("Сотрудник не найден: {$searchStr}");
         }
 
-        throw new \Exception("Сотрудник не найден: {$searchStr}");
+        return $employeesMap[$searchStr];
     }
 
     /**
-     * Извлекает информацию о проблемном сотруднике из строки
+     * Загружает всех сотрудников из базы в виде ассоциативного массива
      *
-     * @param string $employeesString Строка с сотрудниками
-     * @return string Информация о проблемном сотруднике
+     * @return array
      */
-    protected function extractEmployeeFromError($employeesString)
+    protected function loadAllEmployeesMap()
     {
-        $employees = array_map('trim', explode(';', $employeesString));
+        $employeesMap = [];
 
-        foreach ($employees as $employeeStr) {
-            try {
-                $this->parseEmployee($employeeStr);
-            } catch (\Exception $e) {
-                if ($e->getMessage() === 'Сотрудник не найден в системе') {
-                    return $employeeStr;
-                }
+        $query = Employee::find()
+            ->select(['id', 'last_name', 'first_name', 'middle_name', 'birth_date'])
+            ->asArray();
+
+        foreach ($query->batch(1000) as $batch) {
+            foreach ($batch as $employee) {
+                $key = implode(' ', [
+                    $employee['last_name'],
+                    $employee['first_name'],
+                    $employee['middle_name'],
+                    \Yii::$app->formatter->asDate($employee['birth_date'], 'dd.MM.yyyy')
+                ]);
+                $key = trim(preg_replace('/\s+/u', ' ', $key));
+                $employeesMap[$key] = $employee['id'];
             }
         }
 
-        return 'Не удалось определить ФИО';
+        return $employeesMap;
     }
 
     /**
-     * Обрабатывает тип документа, удаляя указанные форматы в скобках и весь текст после них
+     * Обрабатывает тип документа
      *
-     * @param string $type Тип документа, который может содержать (CDA) или (PDF/A-1)
-     * @return string Тип документа без указанных форматов и последующего текста
+     * @param string $type Тип документа
+     * @return string
      */
     protected function processDocumentType($type)
     {
         $pattern = '/\s*(?:\(CDA\)|\(PDF\/A-1\)).*$/i';
         $type = preg_replace($pattern, '', $type);
-
         return trim($type);
     }
 
     /**
      * Преобразует дату в формат Y-m-d
      *
-     * @param mixed $date Дата в различных форматах
-     * @return string Дата в формате Y-m-d
-     * @throws \Exception Если неверный формат даты
+     * @param mixed $date Дата
+     * @return string
+     * @throws \Exception
      */
     protected function processDate($date)
     {
@@ -364,27 +307,5 @@ class RemdController extends Controller
         }
 
         return date('Y-m-d', $timestamp);
-    }
-
-    /**
-     * Выводит отчет об импорте в консоль
-     *
-     * @param array $report Отчет об импорте
-     */
-    protected function printReport($report)
-    {
-        $this->stdout("\n=== ОТЧЕТ ОБ ИМПОРТЕ ===\n", BaseConsole::FG_YELLOW);
-        $this->stdout("Успешно импортировано: {$report['imported']}\n", BaseConsole::FG_GREEN);
-        $this->stdout("Пропущено (дубликаты): {$report['skipped']}\n", BaseConsole::FG_YELLOW);
-
-        if (!empty($report['errors'])) {
-            $this->stderr("\nОШИБКИ ИМПОРТА:\n", BaseConsole::FG_RED);
-            foreach ($report['errors'] as $id => $error) {
-                $this->stderr("- {$id}: {$error}\n", BaseConsole::FG_RED);
-            }
-            $this->stderr("\nВсего ошибок: " . count($report['errors']) . "\n", BaseConsole::FG_RED);
-        } else {
-            $this->stdout("\nОшибок нет\n", BaseConsole::FG_GREEN);
-        }
     }
 }
