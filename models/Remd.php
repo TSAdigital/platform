@@ -52,6 +52,7 @@ class Remd extends ActiveRecord
     {
         return [
             ['unique_code', 'string', 'max' => 255],
+            ['unique_code', 'unique'],
             ['unique_code', 'required'],
 
             ['type', 'string', 'max' => 255],
