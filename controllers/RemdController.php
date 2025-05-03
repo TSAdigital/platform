@@ -10,7 +10,6 @@ use app\models\RemdEmployee;
 use app\models\RemdPlan;
 use app\models\RemdTypeSetting;
 use Yii;
-use yii\data\ActiveDataProvider;
 use yii\data\Pagination;
 use yii\db\Exception;
 use yii\filters\AccessControl;
@@ -33,7 +32,7 @@ class RemdController extends Controller
                     'rules' => [
                         [
                             'allow' => true,
-                            'actions' => ['index', 'employee-list', 'position-list', 'analytics', 'employee-documents'],
+                            'actions' => ['index', 'get-stats', 'get-document-types-stats', 'employee-document-types', 'employee-list', 'position-list', 'analytics', 'employee-documents'],
                             'roles' => ['viewRemdList'],
                         ],
                         [
@@ -48,34 +47,103 @@ class RemdController extends Controller
     }
 
     /**
-     * Основное действие для отображения списка документов РЕМД.
-     * Позволяет фильтровать документы по сотрудникам, должностям, датам и типам.
+     * Главное действие контроллера, отображающее список документов РЕМД.
+     * Позволяет фильтровать документы по дате, типу, сотруднику и должности.
      *
-     * @return string Результат рендеринга представления
-     * @throws Exception Если произошла ошибка при получении настроек
+     * @return string Результат рендеринга представления с фильтрами и данными
      */
     public function actionIndex()
     {
+        $currentYear = date('Y');
+
         $baseSettings = RemdBaseSetting::getSettings();
         $typeSettings = RemdTypeSetting::getSettings();
 
         $searchParams = Yii::$app->request->get();
-        $currentYear = date('Y');
+
         $defaultDateFrom = $baseSettings->date_from ? date('Y-m-d', strtotime($baseSettings->date_from)) : $currentYear . '-01-01';
         $defaultDateTo = $baseSettings->date_to ? date('Y-m-d', strtotime($baseSettings->date_to)) : $currentYear . '-12-31';
         $dateFrom = (isset($searchParams['date_from']) && !empty($searchParams['date_from'])) ? date('Y-m-d', strtotime($searchParams['date_from'])) : $defaultDateFrom;
         $dateTo = (isset($searchParams['date_to']) && !empty($searchParams['date_to'])) ? date('Y-m-d', strtotime($searchParams['date_to'])) : $defaultDateTo;
-        $documentType = $searchParams['document_type'] ?? '';
+        $documentType = $searchParams['document_type'] ?? null;
+        $employeeId = $searchParams['employee_id'] ?? null;
+        $positionId = $searchParams['position_id'] ?? null;
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+
+        $limit = $baseSettings->page_size ? $baseSettings->page_size : 20;
+
+        $uniqueDocumentTypes = Remd::find()
+            ->select(['type'])
+            ->distinct()
+            ->orderBy(['type' => SORT_ASC])
+            ->column();
+
+        if ($employeeId) {
+            $employee = Employee::findOne($employeeId);
+            $employeeName = $employee ? $employee->getFullName() : '';
+        } else {
+            $employeeName = '';
+        }
+
+        if ($positionId) {
+            $position = Position::findOne($positionId);
+            $positionName = $position ? $position->name : '';
+        } else {
+            $positionName = '';
+        }
+
+        return $this->render('index', [
+            'uniqueDocumentTypes' => $uniqueDocumentTypes,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'documentType' => $documentType,
+            'employeeId' => $employeeId,
+            'positionId' => $positionId,
+            'selectedEmployeeName' => $employeeName,
+            'selectedPositionName' => $positionName,
+            'enabledDocTypes' => $enabledDocTypes,
+            'limit' => $limit,
+        ]);
+    }
+
+    /**
+     * Возвращает статистику по документам в формате JSON.
+     * Содержит общее количество документов, уникальных типов и сотрудников.
+     * Поддерживает фильтрацию по дате, типу документа, сотруднику и должности.
+     *
+     * @return array JSON-ответ с данными статистики
+     */
+    public function actionGetStats()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $currentYear = date('Y');
+
+        $baseSettings = RemdBaseSetting::getSettings();
+        $typeSettings = RemdTypeSetting::getSettings();
+
+        $searchParams = Yii::$app->request->get();
+
+        $defaultDateFrom = $baseSettings->date_from ? date('Y-m-d', strtotime($baseSettings->date_from)) : $currentYear . '-01-01';
+        $defaultDateTo = $baseSettings->date_to ? date('Y-m-d', strtotime($baseSettings->date_to)) : $currentYear . '-12-31';
+
+        $dateFrom = (isset($searchParams['date_from']) && !empty($searchParams['date_from'])) ? date('Y-m-d', strtotime($searchParams['date_from'])) : $defaultDateFrom;
+        $dateTo = (isset($searchParams['date_to']) && !empty($searchParams['date_to'])) ? date('Y-m-d', strtotime($searchParams['date_to'])) : $defaultDateTo;
+        $documentType = $searchParams['document_type'] ?? null;
         $employeeId = $searchParams['employee_id'] ?? null;
         $positionId = $searchParams['position_id'] ?? null;
         $allDocuments = $searchParams['all_documents'] ?? null;
+
         $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
 
-        $page = $searchParams['page'] ?? 1;
-        $pageSize = $searchParams['per-page'] ?? $baseSettings->page_size ?? 10;
+        if ($allDocuments == 1) {
+            $enabledDocTypes = null;
+        }
 
         $cacheKey = [
-            'remd_index',
+            'remd_get_stats',
+            'currentYear' => $currentYear,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
             'documentType' => $documentType,
@@ -83,8 +151,235 @@ class RemdController extends Controller
             'positionId' => $positionId,
             'allDocuments' => $allDocuments,
             'enabledDocTypes' => $enabledDocTypes,
-            'pageSize' => $pageSize,
-            'page' => $page,
+        ];
+
+        $cacheKey = md5(serialize($cacheKey));
+
+        $cache = Yii::$app->cache;
+        $cachedData = $cache->get($cacheKey);
+
+        if ($cachedData === false) {
+            $query = Remd::find()
+                ->select([
+                    'total_documents' => 'COUNT(DISTINCT remd.id)',
+                    'unique_types_count' => 'COUNT(DISTINCT remd.type)',
+                ])
+                ->andWhere(['>=', 'remd.registration_date', $dateFrom])
+                ->andWhere(['<=', 'remd.registration_date', $dateTo])
+                ->andFilterWhere(['remd.type' => $enabledDocTypes]);
+
+            $employeesQuery = (new \yii\db\Query())
+                ->select(['COUNT(DISTINCT remd_employee.employee_id)'])
+                ->from('remd_employee')
+                ->andWhere(['>=', 'remd.registration_date', $dateFrom])
+                ->andWhere(['<=', 'remd.registration_date', $dateTo])
+                ->andFilterWhere(['remd.type' => $enabledDocTypes])
+                ->innerJoin('remd', 'remd.id = remd_employee.remd_id');
+
+            if (!empty($searchParams['document_type'])) {
+                $query->andWhere(['remd.type' => $searchParams['document_type']]);
+                $employeesQuery->andWhere(['remd.type' => $searchParams['document_type']]);
+            }
+
+            if (!empty($searchParams['date_from'])) {
+                $query->andWhere(['>=', 'remd.registration_date', $dateFrom]);
+                $employeesQuery->andWhere(['>=', 'remd.registration_date', $dateFrom]);
+            }
+
+            if (!empty($searchParams['date_to'])) {
+                $query->andWhere(['<=', 'remd.registration_date', $dateTo]);
+                $employeesQuery->andWhere(['<=', 'remd.registration_date', $dateTo]);
+            }
+
+            if (!empty($employeeId) || !empty($positionId)) {
+                $query->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id');
+
+                if (!empty($employeeId)) {
+                    $query->andWhere(['remd_employee.employee_id' => $employeeId]);
+                    $employeesQuery->andWhere(['remd_employee.employee_id' => $employeeId]);
+                }
+
+                if (!empty($positionId)) {
+                    $query->innerJoin('employee', 'employee.id = remd_employee.employee_id')
+                        ->andWhere(['employee.position_id' => $positionId]);
+                    $employeesQuery->innerJoin('employee', 'employee.id = remd_employee.employee_id')
+                        ->andWhere(['employee.position_id' => $positionId]);
+                }
+            }
+
+            $result = $query->asArray()->one();
+            $employeesCount = $employeesQuery->scalar();
+            $updateDate = $baseSettings->date_of_update ? date('Y-m-d', strtotime($baseSettings->date_of_update)) : Remd::getLastRegistrationDate();
+
+            $dataToCache = [
+                'allDocumentCount' => $result['total_documents'] ?? 0,
+                'allTypesCount' => $result['unique_types_count'] ?? 0,
+                'allEmployeesCount' => $employeesCount ?? 0,
+                'updateDate' => $updateDate,
+            ];
+
+            if ($baseSettings->use_caching) {
+                $cache->set($cacheKey, $dataToCache, 0);
+            }
+
+        }else {
+            $dataToCache = $cachedData;
+        }
+
+        return $dataToCache;
+    }
+
+    /**
+     * Возвращает статистику по типам документов в формате JSON.
+     * Содержит количество документов каждого типа.
+     * Поддерживает фильтрацию по дате, типу документа, сотруднику и должности.
+     *
+     * @return array JSON-ответ с данными по типам документов
+     */
+    public function actionGetDocumentTypesStats()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $currentYear = date('Y');
+
+        $baseSettings = RemdBaseSetting::getSettings();
+        $typeSettings = RemdTypeSetting::getSettings();
+
+        $searchParams = Yii::$app->request->get();
+
+        $defaultDateFrom = $baseSettings->date_from ? date('Y-m-d', strtotime($baseSettings->date_from)) : $currentYear . '-01-01';
+        $defaultDateTo = $baseSettings->date_to ? date('Y-m-d', strtotime($baseSettings->date_to)) : $currentYear . '-12-31';
+        $dateFrom = (isset($searchParams['date_from']) && !empty($searchParams['date_from'])) ? date('Y-m-d', strtotime($searchParams['date_from'])) : $defaultDateFrom;
+        $dateTo = (isset($searchParams['date_to']) && !empty($searchParams['date_to'])) ? date('Y-m-d', strtotime($searchParams['date_to'])) : $defaultDateTo;
+        $documentType = $searchParams['document_type'] ?? null;
+        $employeeId = $searchParams['employee_id'] ?? null;
+        $positionId = $searchParams['position_id'] ?? null;
+        $allDocuments = $searchParams['all_documents'] ?? null;
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+
+        if ($allDocuments == 1) {
+            $enabledDocTypes = null;
+        }
+
+        $cacheKey = [
+            'remd_types_stats',
+            'currentYear' => $currentYear,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'documentType' => $documentType,
+            'employeeId' => $employeeId,
+            'positionId' => $positionId,
+            'allDocuments' => $allDocuments,
+            'enabledDocTypes' => $enabledDocTypes,
+        ];
+
+        $cacheKey = md5(serialize($cacheKey));
+
+        $cache = Yii::$app->cache;
+        $cachedData = $cache->get($cacheKey);
+
+        if ($cachedData === false) {
+            $query = Remd::find()
+                ->select([
+                    'type',
+                    'count' => 'COUNT(*)'
+                ])
+                ->andWhere(['>=', 'remd.registration_date', $dateFrom])
+                ->andWhere(['<=', 'remd.registration_date', $dateTo])
+                ->andFilterWhere(['remd.type' => $enabledDocTypes])
+                ->groupBy(['type'])
+                ->orderBy(['type' => SORT_ASC]);
+
+            if (!empty($documentType)) {
+                $query->andWhere(['remd.type' => $documentType]);
+            }
+
+            if (!empty($dateFrom)) {
+                $query->andWhere(['>=', 'remd.registration_date', $dateFrom]);
+            }
+
+            if (!empty($dateTo)) {
+                $query->andWhere(['<=', 'remd.registration_date', $dateTo]);
+            }
+
+            if ($employeeId || $positionId) {
+                $query->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id');
+
+                if ($employeeId) {
+                    $query->andWhere(['remd_employee.employee_id' => $employeeId]);
+                }
+
+                if ($positionId) {
+                    $query->innerJoin('employee', 'employee.id = remd_employee.employee_id')
+                        ->andWhere(['employee.position_id' => $positionId]);
+                }
+            }
+
+            $dataToCache = $query->asArray()->all();
+
+            if ($baseSettings->use_caching) {
+                $cache->set($cacheKey, $dataToCache, 0);
+            }
+
+        } else {
+            $dataToCache = $cachedData;
+        }
+
+        return $dataToCache;
+    }
+
+    /**
+     * Возвращает список документов по сотрудникам в формате JSON.
+     * Содержит информацию о количестве документов у каждого сотрудника.
+     * Поддерживает пагинацию и фильтрацию по дате, типу документа и должности.
+     *
+     * @return array JSON-ответ с данными по сотрудникам и их документам
+     */
+    public function actionEmployeeDocuments()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $currentYear = date('Y');
+
+        $baseSettings = RemdBaseSetting::getSettings();
+        $typeSettings = RemdTypeSetting::getSettings();
+
+        $searchParams = Yii::$app->request->get();
+
+        $limit = $baseSettings->page_size ? $baseSettings->page_size : 20;
+
+        $offset = Yii::$app->request->get('offset', 0);
+        $limit = Yii::$app->request->get('limit', $limit);
+
+        $defaultDateFrom = $baseSettings->date_from ? date('Y-m-d', strtotime($baseSettings->date_from)) : $currentYear . '-01-01';
+        $defaultDateTo = $baseSettings->date_to ? date('Y-m-d', strtotime($baseSettings->date_to)) : $currentYear . '-12-31';
+
+        $dateFrom = (isset($searchParams['date_from']) && !empty($searchParams['date_from'])) ? date('Y-m-d', strtotime($searchParams['date_from'])) : $defaultDateFrom;
+        $dateTo = (isset($searchParams['date_to']) && !empty($searchParams['date_to'])) ? date('Y-m-d', strtotime($searchParams['date_to'])) : $defaultDateTo;
+        $documentType = $searchParams['document_type'] ?? null;
+        $employeeId = $searchParams['employee_id'] ?? null;
+        $positionId = $searchParams['position_id'] ?? null;
+        $allDocuments = $searchParams['all_documents'] ?? null;
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+
+        if ($allDocuments == 1) {
+            $enabledDocTypes = null;
+        }
+
+        $cacheKey = [
+            'remd_employee_stats',
+            'currentYear' => $currentYear,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'documentType' => $documentType,
+            'employeeId' => $employeeId,
+            'positionId' => $positionId,
+            'allDocuments' => $allDocuments,
+            'enabledDocTypes' => $enabledDocTypes,
+            'offset' => $offset,
+            'limit' => $limit,
         ];
 
         $cacheKey = md5(serialize($cacheKey));
@@ -96,233 +391,156 @@ class RemdController extends Controller
             $query = Employee::find()
                 ->select([
                     'employee.id',
-                    'employee.first_name',
                     'employee.last_name',
+                    'employee.first_name',
                     'employee.middle_name',
-                    'employee.position_id',
-                    'total_documents' => 'COUNT(remd_employee.remd_id)',
+                    'position.name as position_name',
+                    'document_count' => 'COUNT(DISTINCT remd.id)'
                 ])
-                ->with('position')
+                ->andWhere(['>=', 'remd.registration_date', $dateFrom])
+                ->andWhere(['<=', 'remd.registration_date', $dateTo])
+                ->andFilterWhere(['remd.type' => $enabledDocTypes])
+                ->joinWith('position')
                 ->innerJoin('remd_employee', 'remd_employee.employee_id = employee.id')
-                ->innerJoin(['remd_alias' => 'remd'], 'remd_alias.id = remd_employee.remd_id');
+                ->innerJoin('remd', 'remd.id = remd_employee.remd_id')
+                ->groupBy(['employee.id', 'position.name'])
+                ->orderBy([
+                    'employee.last_name' => SORT_ASC,
+                    'employee.first_name' => SORT_ASC,
+                    'employee.middle_name' => SORT_ASC
+                ]);
 
-            if ($dateFrom && $dateTo) {
-                $query->andWhere(['between', 'remd_alias.registration_date', $dateFrom, $dateTo]);
+            // Применяем фильтры
+            if (!empty($searchParams['document_type'])) {
+                $query->andWhere(['remd.type' => $documentType]);
             }
 
-            if ($documentType) {
-                $query->andWhere(['remd_alias.type' => $documentType]);
+            if (!empty($dateFrom)) {
+                $query->andWhere(['>=', 'remd.registration_date', $dateFrom]);
             }
 
-            if ($employeeId) {
+            if (!empty($dateTo)) {
+                $query->andWhere(['<=', 'remd.registration_date', $dateTo]);
+            }
+
+            if (!empty($employeeId)) {
                 $query->andWhere(['employee.id' => $employeeId]);
             }
 
-            if ($positionId) {
+            if (!empty($positionId)) {
                 $query->andWhere(['employee.position_id' => $positionId]);
             }
 
-            if ($enabledDocTypes and !$allDocuments) {
-                $query->andWhere(['remd_alias.type' => $enabledDocTypes]);
-            }
-
-            $dataProvider = new ActiveDataProvider([
-                'query' => $query->groupBy('employee.id'),
-                'pagination' => [
-                    'pageSize' => $pageSize,
-                ],
-                'sort' => [
-                    'attributes' => [
-                        'fullName' => [
-                            'asc' => ['employee.last_name' => SORT_ASC, 'employee.first_name' => SORT_ASC, 'employee.middle_name' => SORT_ASC],
-                            'desc' => ['employee.last_name' => SORT_DESC, 'employee.first_name' => SORT_DESC, 'employee.middle_name' => SORT_DESC],
-                            'label' => 'ФИО',
-                            'default' => SORT_ASC,
-                        ],
-                    ],
-                    'defaultOrder' => [
-                        'fullName' => SORT_ASC,
-                    ],
-                ],
-            ]);
-
-            $models = $dataProvider->getModels();
-
-            $employeeIds = array_map(fn($model) => $model->id, $models);
-
-            $documentTypesQuery = Remd::find()
-                ->select([
-                    'remd_employee.employee_id',
-                    'remd.type',
-                    'count' => 'COUNT(*)',
-                ])
-                ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
-                ->where(['remd_employee.employee_id' => $employeeIds]);
-
-            if ($dateFrom && $dateTo) {
-                $documentTypesQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
-            }
-
-            if ($documentType) {
-                $documentTypesQuery->andWhere(['remd.type' => $documentType]);
-            }
-
-            if ($enabledDocTypes and !$allDocuments) {
-                $documentTypesQuery->andWhere(['remd.type' => $enabledDocTypes]);
-            }
-
-            $documentTypesData = $documentTypesQuery
-                ->groupBy(['remd_employee.employee_id', 'remd.type'])
-                ->orderBy(['remd.type' => SORT_ASC])
-                ->asArray()
-                ->all();
-
-            $documentTypesByEmployee = [];
-            foreach ($documentTypesData as $item) {
-                $documentTypesByEmployee[$item['employee_id']][] = [
-                    'type' => $item['type'],
-                    'count' => $item['count'],
-                ];
-            }
-
-            $result = [];
-            foreach ($models as $employee) {
-                $result[] = [
-                    'id' => $employee->id,
-                    'full_name' => $employee->last_name . ' ' . $employee->first_name . ' ' . $employee->middle_name,
-                    'position' => $employee->getPositionName(),
-                    'total_documents' => $employee->total_documents,
-                    'document_types' => $documentTypesByEmployee[$employee->id] ?? [],
-                ];
-            }
-
-            $totalDocumentsQuery = Remd::find()
-                ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
-                ->innerJoin('employee', 'employee.id = remd_employee.employee_id');
-
-            if ($dateFrom && $dateTo) {
-                $totalDocumentsQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
-            }
-
-            if ($documentType) {
-                $totalDocumentsQuery->andWhere(['remd.type' => $documentType]);
-            }
-
-            if ($positionId) {
-                $totalDocumentsQuery->andWhere(['employee.position_id' => $positionId]);
-            }
-
-            if ($enabledDocTypes and !$allDocuments) {
-                $totalDocumentsQuery->andWhere(['remd.type' => $enabledDocTypes]);
-            }
-
-            if ($employeeId) {
-                $totalDocumentsQuery->andWhere(['remd_employee.employee_id' => $employeeId]); // Фильтрация по сотруднику
-            }
-
-            $totalDocumentsQuery->select('remd.id')->groupBy('remd.id');
-            $totalDocuments = $totalDocumentsQuery->count();
-
-            $uniqueDocumentTypesQuery = Remd::find()
-                ->select(['type' => 'remd.type', 'count' => 'COUNT(DISTINCT remd.id)'])
-                ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
-                ->innerJoin('employee', 'employee.id = remd_employee.employee_id');
-
-            if ($dateFrom && $dateTo) {
-                $uniqueDocumentTypesQuery->andWhere(['between', 'remd.registration_date', $dateFrom, $dateTo]);
-            }
-
-            if ($documentType) {
-                $uniqueDocumentTypesQuery->andWhere(['remd.type' => $documentType]);
-            }
-
-            if ($positionId) {
-                $uniqueDocumentTypesQuery->andWhere(['employee.position_id' => $positionId]);
-            }
-
-            if ($enabledDocTypes and !$allDocuments) {
-                $uniqueDocumentTypesQuery->andWhere(['remd.type' => $enabledDocTypes]);
-            }
-
-            if ($employeeId) {
-                $uniqueDocumentTypesQuery->andWhere(['remd_employee.employee_id' => $employeeId]); // Фильтрация по сотруднику
-            }
-
-            $uniqueDocumentTypes = $uniqueDocumentTypesQuery
-                ->groupBy('remd.type')
-                ->orderBy(['remd.type' => SORT_ASC])
-                ->asArray()
-                ->all();
-
-            $uniqueEmployeesWithDocumentsQuery = RemdEmployee::find()
-                ->select('employee.id')
-                ->distinct()
-                ->innerJoin(['remd_alias' => 'remd'], 'remd_alias.id = remd_employee.remd_id')
-                ->innerJoin('employee', 'employee.id = remd_employee.employee_id');
-
-            if ($dateFrom && $dateTo) {
-                $uniqueEmployeesWithDocumentsQuery->andWhere(['between', 'remd_alias.registration_date', $dateFrom, $dateTo]);
-            }
-
-            if ($documentType) {
-                $uniqueEmployeesWithDocumentsQuery->andWhere(['remd_alias.type' => $documentType]);
-            }
-
-            if ($positionId) {
-                $uniqueEmployeesWithDocumentsQuery->andWhere(['employee.position_id' => $positionId]);
-            }
-
-            if ($enabledDocTypes and !$allDocuments) {
-                $uniqueEmployeesWithDocumentsQuery->andWhere(['remd_alias.type' => $enabledDocTypes]);
-            }
-
-            if ($employeeId) {
-                $uniqueEmployeesWithDocumentsQuery->andWhere(['employee.id' => $employeeId]);
-            }
-
-            $uniqueEmployeesWithDocuments = $uniqueEmployeesWithDocumentsQuery->count();
-
-            $latestDocumentDate = $baseSettings->date_of_update ? $baseSettings->date_of_update : Remd::getLastRegistrationDate();
-
-            $employeeName = '';
-
-            $positionName = '';
-
-            if ($employeeId) {
-                $employee = Employee::findOne($employeeId);
-                $employeeName = $employee ? $employee->getFullName() : '';
-            }
-
-            if ($positionId) {
-                $position = Position::findOne($positionId);
-                $positionName = $position ? $position->name : '';
-            }
+            $totalCount = $query->count();
+            $employees = $query->offset($offset)->limit($limit)->asArray()->all();
 
             $dataToCache = [
-                'data' => $result,
-                'dataProvider' => $dataProvider,
-                'totalDocuments' => $totalDocuments,
-                'uniqueDocumentTypes' => $uniqueDocumentTypes,
-                'uniqueEmployeesWithDocuments' => $uniqueEmployeesWithDocuments,
-                'latestDocumentDate' => $latestDocumentDate,
-                'dateFrom' => $dateFrom,
-                'dateTo' => $dateTo,
-                'documentType' => $documentType,
-                'employeeId' => $employeeId,
-                'positionId' => $positionId,
-                'selectedEmployeeName' => $employeeName,
-                'selectedPositionName' => $positionName,
-                'enabledDocTypes' => $enabledDocTypes,
+                'employees' => $employees,
+                'totalCount' => $totalCount,
+                'hasMore' => ($offset + $limit) < $totalCount,
+                'limit' => $limit
             ];
 
             if ($baseSettings->use_caching) {
                 $cache->set($cacheKey, $dataToCache, 0);
             }
+
         } else {
             $dataToCache = $cachedData;
         }
 
-        return $this->render('index', $dataToCache);
+        return $dataToCache;
+    }
+
+    /**
+     * Возвращает статистику по типам документов для конкретного сотрудника в формате JSON.
+     * Содержит количество документов каждого типа у указанного сотрудника.
+     * Поддерживает фильтрацию по дате и типу документа.
+     *
+     * @return array JSON-ответ с данными по типам документов сотрудника
+     */
+    public function actionEmployeeDocumentTypes()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $currentYear = date('Y');
+
+        $baseSettings = RemdBaseSetting::getSettings();
+        $typeSettings = RemdTypeSetting::getSettings();
+
+        $searchParams = Yii::$app->request->get();
+
+        $defaultDateFrom = $baseSettings->date_from ? date('Y-m-d', strtotime($baseSettings->date_from)) : $currentYear . '-01-01';
+        $defaultDateTo = $baseSettings->date_to ? date('Y-m-d', strtotime($baseSettings->date_to)) : $currentYear . '-12-31';
+        $dateFrom = (isset($searchParams['date_from']) && !empty($searchParams['date_from'])) ? date('Y-m-d', strtotime($searchParams['date_from'])) : $defaultDateFrom;
+        $dateTo = (isset($searchParams['date_to']) && !empty($searchParams['date_to'])) ? date('Y-m-d', strtotime($searchParams['date_to'])) : $defaultDateTo;
+        $employeeId = $searchParams['selected_employee_id'] ?? null;
+        $documentType = $searchParams['document_type'] ?? null;
+        $positionId = $searchParams['position_id'] ?? null;
+        $allDocuments = $searchParams['all_documents'] ?? null;
+
+        $enabledDocTypes = $typeSettings->getEnabledDocTypesArray();
+
+        if ($allDocuments == 1) {
+            $enabledDocTypes = null;
+        }
+
+        if (!$employeeId) {
+            return ['error' => 'Не указан сотрудник'];
+        }
+
+        try {
+            $query = Remd::find()
+                ->select([
+                    'type',
+                    'count' => 'COUNT(*)',
+                    'last_date' => 'MAX(remd.registration_date)' // Добавим дату последнего документа
+                ])
+                ->innerJoin('remd_employee', 'remd_employee.remd_id = remd.id')
+                ->where(['remd_employee.employee_id' => $employeeId])
+                ->andWhere(['>=', 'remd.registration_date', $dateFrom])
+                ->andWhere(['<=', 'remd.registration_date', $dateTo])
+                ->andFilterWhere(['remd.type' => $enabledDocTypes])
+                ->groupBy(['type'])
+                ->orderBy(['type' => SORT_ASC]);
+
+            // Применяем фильтры
+            if (!empty($documentType)) {
+                $query->andWhere(['remd.type' => $documentType]);
+            }
+
+            if (!empty($dateFrom)) {
+                $query->andWhere(['>=', 'remd.registration_date', $dateFrom]);
+            }
+
+            if (!empty($dateTo)) {
+                $query->andWhere(['<=', 'remd.registration_date', $dateTo]);
+            }
+
+            if (!empty($positionId)) {
+                $query->innerJoin('employee', 'employee.id = remd_employee.employee_id')
+                    ->andWhere(['employee.position_id' => $positionId]);
+            }
+
+            $stats = $query->asArray()->all();
+
+            // Добавим информацию о сотруднике
+            $employee = Employee::find()
+                ->select(['last_name', 'first_name', 'middle_name'])
+                ->where(['id' => $employeeId])
+                ->asArray()
+                ->one();
+
+            return [
+                'stats' => $stats,
+                'employee' => $employee,
+                'total' => array_sum(array_column($stats, 'count'))
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error($e->getMessage(), 'app');
+            return ['error' => 'Ошибка при получении данных'];
+        }
     }
 
     /**
