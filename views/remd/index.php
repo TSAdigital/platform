@@ -540,14 +540,14 @@ $js = <<<JS
                date.getFullYear();
     }
     
-    $('#w0').on('submit', function(e) {
+    $('#w0').off('submit').on('submit', function(e) {
         e.preventDefault();
         $('#employees-header').hide();
         loadAllData();
         $('.offcanvas').offcanvas('hide');
     });
     
-    $('#reset-filter').on('click', function(e) {
+    $('#reset-filter').off('click').on('click', function(e) {
         e.preventDefault();
         $('#w0')[0].reset();
         $('[name="document_type"]').val(null).trigger('change');
