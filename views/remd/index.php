@@ -346,11 +346,25 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <?php
 $url = Url::to(['remd/get-stats']);
+$typesStatsUrl = Url::to(['remd/get-document-types-stats']);
+$employeeDocumentsUrl = Url::to(['remd/employee-documents']);
+$employeeDocumentTypesUrl = Url::to(['remd/employee-document-types']);
+
 $js = <<<JS
+    var remdApp = {
+        isFormSubmitting: false,
+        employeesOffset: 0,
+        employeesLimit: $limit,
+        employeesHasMore: true,
+        employeesIsLoading: false
+    }
+    
     $(document).ready(function() {
         $('.spinner-border').show();
         $('.placeholder').addClass('placeholder-glow');
         $('#document-types-stats').html('<p class="mb-2 mb-md-0">Загрузка данных...</p>');
+        
+        loadAllData();
     });
     
     function resetValues() {
@@ -368,120 +382,56 @@ $js = <<<JS
         return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     }
     
-    function loadStatistics() {
-        var formData = $('#w0').serialize();
+    function loadAllData() {
+        if (remdApp.isFormSubmitting) return;
+        remdApp.isFormSubmitting = true;
         
-        $.get('$url', formData)
-        .done(function(data) {
-            var formattedDate = formatDate(data.updateDate);
-            
-            $('#all-document-count').html(numberFormat(data.allDocumentCount));
-            $('#all-types-count').html(numberFormat(data.allTypesCount));
-            $('#all-employees-count').html(numberFormat(data.allEmployeesCount));
-            $('#update-date').html(formattedDate);
-            
-            $('.spinner-stats').hide();
-            $('.placeholder').removeClass('placeholder-glow');
-            
-            updateTitleAndBreadcrumbs();
-        })
-        .fail(function(jqXHR, textStatus, errorThrown) {
-            console.error("Ошибка запроса:", textStatus, errorThrown);
-    
-            $('#all-document-count').html('<span class="text-danger">Ошибка</span>');
-            $('#all-types-count').html('<span class="text-danger">Ошибка</span>');
-            $('#all-employees-count').html('<span class="text-danger">Ошибка</span>');
-            $('#update-date').html('<span class="text-danger">Ошибка</span>');
-            $('.spinner-border').hide();
-            
-            if (typeof toastr !== 'undefined') {
-                toastr.error('Не удалось загрузить данные', 'Ошибка');
-            }
+        resetValues();
+        
+        var formData = $('#w0').serialize();
+
+        Promise.all([
+            loadStatistics(formData),
+            loadDocumentTypesStats(formData),
+            loadEmployeesInitial(formData)
+        ]).catch(function(error) {
+            console.error("Ошибка при загрузке данных:", error);
+        }).finally(function() {
+            remdApp.isFormSubmitting = false;
         });
     }
     
-    function updateTitleAndBreadcrumbs() {
-        var dateFrom = $('[name="date_from"]').val() || '$dateFrom';
-        var dateTo = $('[name="date_to"]').val() || '$dateTo';
-        
-        var formattedFrom = formatDisplayDate(dateFrom);
-        var formattedTo = formatDisplayDate(dateTo);
-        
-        var newTitle = 'Зарегистрированные документы в РЭМД с ' + formattedFrom + ' по ' + formattedTo;
-        
-        document.title = newTitle;
-        
-        $('.breadcrumb li:last').text(newTitle);
-        
-        $('h1.h3').text(newTitle);
+    function loadStatistics(formData) {
+        return new Promise(function(resolve, reject) {
+            $.get('$url', formData)
+            .done(function(data) {
+                var formattedDate = formatDate(data.updateDate);
+                
+                $('#all-document-count').html(numberFormat(data.allDocumentCount));
+                $('#all-types-count').html(numberFormat(data.allTypesCount));
+                $('#all-employees-count').html(numberFormat(data.allEmployeesCount));
+                $('#update-date').html(formattedDate);
+                
+                $('.spinner-stats').hide();
+                $('.placeholder').removeClass('placeholder-glow');
+                
+                updateTitleAndBreadcrumbs();
+                resolve(data);
+            })
+            .fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Ошибка запроса статистики:", textStatus, errorThrown);
+                $('#all-document-count').html('<span class="text-danger">Ошибка</span>');
+                $('#all-types-count').html('<span class="text-danger">Ошибка</span>');
+                $('#all-employees-count').html('<span class="text-danger">Ошибка</span>');
+                $('#update-date').html('<span class="text-danger">Ошибка</span>');
+                reject(errorThrown);
+            });
+        });
     }
     
-    function formatDisplayDate(dateString) {
-        if (!dateString) return '';
-        var parts = dateString.split('.');
-        if (parts.length === 3) {
-            return dateString;
-        }
-        
-        var date = new Date(dateString);
-        if (isNaN(date.getTime())) return dateString;
-        
-        var day = String(date.getDate()).padStart(2, '0');
-        var month = String(date.getMonth() + 1).padStart(2, '0');
-        var year = date.getFullYear();
-        
-        return day + '.' + month + '.' + year;
-    }
-    
-    function formatDate(dateString) {
-        if (!dateString) return '-';
-        var date = new Date(dateString);
-        if (isNaN(date.getTime())) return dateString;
-        
-        var day = String(date.getDate()).padStart(2, '0');
-        var month = String(date.getMonth() + 1).padStart(2, '0');
-        var year = date.getFullYear();
-        
-        return day + '.' + month + '.' + year;
-    }
-    
-    loadStatistics();
-    
-    $('#w0').on('submit', function(e) {
-        e.preventDefault();
-        resetValues();
-        loadStatistics();
-        $('.offcanvas').offcanvas('hide'); 
-    });
-    
-    $('#reset-filter').on('click', function(e) {
-        e.preventDefault();
-        
-        $('#w0')[0].reset();
-        
-        $('[name="document_type"]').val(null).trigger('change');
-        $('[name="employee_id"]').val(null).trigger('change');
-        $('[name="position_id"]').val(null).trigger('change');
-        
-        resetValues();
-    
-        loadStatistics();
-    
-        $('.offcanvas').offcanvas('hide');
-        
-        history.pushState(null, '', $(this).attr('href'));
-    });
-JS;
-
-$this->registerJs($js);
-
-$typesStatsUrl = Url::to(['remd/get-document-types-stats']);
-$typesStatsJs = <<<JS
-    $(document).ready(function() {
-        function loadDocumentTypesStats() {
-            var formData = $('#w0').serialize();
+    function loadDocumentTypesStats(formData) {
+        return new Promise(function(resolve, reject) {
             var container = $('#document-types-stats');
-            
             container.html('<p class="mb-2 mb-md-0">Загрузка данных...</p>');
             
             $.get('$typesStatsUrl', formData)
@@ -495,194 +445,235 @@ $typesStatsJs = <<<JS
                     } else {
                         container.html('<p class="mb-2 mb-md-0">Нет данных</p>');
                     }
+                    resolve(data);
                 })
-                .fail(function() {
+                .fail(function(error) {
+                    console.error('Ошибка загрузки статистики по типам:', error);
                     container.html('<p class="text-danger">Ошибка загрузки данных</p>');
+                    reject(error);
                 });
-        }
-        
-        loadDocumentTypesStats();
+        });
+    }
     
-        $('#w0').on('submit', function(e) {
-            e.preventDefault();
-            loadDocumentTypesStats();
+    function loadEmployeesInitial(formData) {
+        return new Promise(function(resolve, reject) {
+            remdApp.employeesOffset = 0;
+            remdApp.employeesHasMore = true;
+            
+            if (remdApp.employeesIsLoading) {
+                resolve();
+                return;
+            }
+            
+            remdApp.employeesIsLoading = true;
+            showEmployeesLoadingIndicator();
+            
+            $.get('$employeeDocumentsUrl', formData + '&offset=' + remdApp.employeesOffset + '&limit=' + remdApp.employeesLimit)
+                .done(function(response) {
+                    if (response.employees.length > 0) {
+                        renderEmployees(response.employees, remdApp.employeesOffset);
+                        remdApp.employeesOffset += response.employees.length;
+                        remdApp.employeesHasMore = response.hasMore;
+                        
+                        if (remdApp.employeesHasMore) {
+                            $('#employees-load-more').show();
+                        } else {
+                            $('#employees-load-more').hide();
+                        }
+                        
+                        $('#employees-list').data('has-data', true);
+                    } else if (remdApp.employeesOffset === 0) {
+                        $('#employees-list').html('<p class="text-center py-4 mb-0">Нет данных для отображения</p>');
+                        $('#employees-list').data('has-data', false);
+                        remdApp.employeesHasMore = false;
+                    }
+                    resolve(response);
+                })
+                .fail(function(error) {
+                    console.error('Ошибка загрузки сотрудников:', error);
+                    $('#employees-list').html('<p class="text-center py-4 text-danger">Ошибка загрузки данных</p>');
+                    $('#employees-list').data('has-data', false);
+                    remdApp.employeesHasMore = false;
+                    reject(error);
+                })
+                .always(function() {
+                    remdApp.employeesIsLoading = false;
+                    hideEmployeesLoadingIndicator();
+                });
         });
+    }
+    
+    function updateTitleAndBreadcrumbs() {
+        var dateFrom = $('[name="date_from"]').val() || '$dateFrom';
+        var dateTo = $('[name="date_to"]').val() || '$dateTo';
         
-        $('#reset-filter').on('click', function(e) {
-            e.preventDefault();
-            setTimeout(function() {
-                loadDocumentTypesStats();
-            }, 100);
-        });
+        var formattedFrom = formatDisplayDate(dateFrom);
+        var formattedTo = formatDisplayDate(dateTo);
+        
+        var newTitle = 'Зарегистрированные документы в РЭМД с ' + formattedFrom + ' по ' + formattedTo;
+        
+        document.title = newTitle;
+        $('.breadcrumb li:last').text(newTitle);
+        $('h1.h3').text(newTitle);
+    }
+    
+    function formatDisplayDate(dateString) {
+        if (!dateString) return '';
+        var parts = dateString.split('.');
+        if (parts.length === 3) return dateString;
+        
+        var date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        
+        return String(date.getDate()).padStart(2, '0') + '.' + 
+               String(date.getMonth() + 1).padStart(2, '0') + '.' + 
+               date.getFullYear();
+    }
+    
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        var date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        
+        return String(date.getDate()).padStart(2, '0') + '.' + 
+               String(date.getMonth() + 1).padStart(2, '0') + '.' + 
+               date.getFullYear();
+    }
+    
+    $('#w0').on('submit', function(e) {
+        e.preventDefault();
+        $('#employees-header').hide();
+        loadAllData();
+        $('.offcanvas').offcanvas('hide');
+    });
+    
+    $('#reset-filter').on('click', function(e) {
+        e.preventDefault();
+        $('#w0')[0].reset();
+        $('[name="document_type"]').val(null).trigger('change');
+        $('[name="employee_id"]').val(null).trigger('change');
+        $('[name="position_id"]').val(null).trigger('change');
+        loadAllData();
+        $('.offcanvas').offcanvas('hide');
+        history.pushState(null, '', $(this).attr('href'));
     });
 JS;
+$this->registerJs($js);
 
-$this->registerJs($typesStatsJs);
-?>
-
-<?php
-$employeeDocumentsUrl = Url::to(['remd/employee-documents']);
 $jsEmployees = <<<JS
-    $(document).ready(function() {
-        let offset = 0;
-        const limit = $limit;
-        let isLoading = false;
-        let hasMore = true;
+    function loadEmployees(formData) {
+        if (remdApp.employeesIsLoading || !remdApp.employeesHasMore) return;
         
-        loadEmployees();
-    
-        function showLoadingIndicator() {
-            if (offset === 0) {
-                $('#employees-list').html(
-                    '<div class="text-center py-4" id="employees-loading">' +
-                        '<div class="spinner-border text-primary" role="status">' +
-                            '<span class="visually-hidden">Загрузка...</span>' +
-                        '</div>' +
-                        '<p class="mt-2 mb-0">Загрузка данных...</p>' +
-                    '</div>'
-                );
-            } else {
-                $('#load-more-btn').prop('disabled', true);
-                $('#employees-load-more').append(
-                    '<div class="spinner-border spinner-border-sm text-primary mt-2" role="status" id="loading-spinner">' +
-                        '<span class="visually-hidden">Загрузка...</span>' +
-                    '</div>'
-                );
-            }
-        }
+        remdApp.employeesIsLoading = true;
+        showEmployeesLoadingIndicator();
         
-        function hideLoadingIndicator() {
-            $('#employees-loading').remove();
-            $('#loading-spinner').remove();
-            $('#load-more-btn').prop('disabled', false);
-            $('#employees-header').html(`
-                <div class="row text-bold">
-                <div class="col-auto text-center py-2 fixed-column justify-content-center align-self-center fw-bold">#</div>
-                <div class="col py-2 fw-bold justify-content-center align-self-center">Сотрудник</div>
-                <div class="col-md-3 d-none d-md-block py-2 fw-bold justify-content-center align-self-center">Должность</div>
-                <div class="col-md-3 d-none d-md-block py-2 fw-bold text-center justify-content-center align-self-center">Всего документов</div>
-                </div>
-            `)
-        }
-    
-        function loadEmployees() {
-        if (isLoading || !hasMore) return;
-        
-        isLoading = true;
-        showLoadingIndicator();
-        
-        const formData = $('#w0').serialize();
-        
-        $.get('$employeeDocumentsUrl', formData + '&offset=' + offset + '&limit=' + limit)
+        $.get('$employeeDocumentsUrl', formData + '&offset=' + remdApp.employeesOffset + '&limit=' + remdApp.employeesLimit)
             .done(function(response) {
                 if (response.employees.length > 0) {
-                    renderEmployees(response.employees, offset);
-                    offset += response.employees.length;
-                    hasMore = response.hasMore;
+                    renderEmployees(response.employees, remdApp.employeesOffset);
+                    remdApp.employeesOffset += response.employees.length;
+                    remdApp.employeesHasMore = response.hasMore;
                     
-                    if (hasMore) {
+                    if (remdApp.employeesHasMore) {
                         $('#employees-load-more').show();
                     } else {
                         $('#employees-load-more').hide();
                     }
                     
                     $('#employees-list').data('has-data', true);
-                } else if (offset === 0) {
-                    $('#employees-list').html('<p class="text-center py-4 mb-0">Нет данных для отображения</p>');
-    
-                    $('#employees-list').data('has-data', false);
-                    hasMore = false;
                 }
             })
-            .fail(function() {
+            .fail(function(error) {
+                console.error('Ошибка загрузки сотрудников:', error);
                 $('#employees-list').html('<p class="text-center py-4 text-danger">Ошибка загрузки данных</p>');
                 $('#employees-list').data('has-data', false);
-                hasMore = false;
+                remdApp.employeesHasMore = false;
             })
             .always(function() {
-                isLoading = false;
-                hideLoadingIndicator();
+                remdApp.employeesIsLoading = false;
+                hideEmployeesLoadingIndicator();
             });
+    }
+    
+    function showEmployeesLoadingIndicator() {
+        if (remdApp.employeesOffset === 0) {
+            $('#employees-list').html(
+                '<div class="text-center py-4" id="employees-loading">' +
+                    '<div class="spinner-border text-primary" role="status">' +
+                        '<span class="visually-hidden">Загрузка...</span>' +
+                    '</div>' +
+                    '<p class="mt-2 mb-0">Загрузка данных...</p>' +
+                '</div>'
+            );
+        } else {
+            $('#load-more-btn').prop('disabled', true);
+            $('#employees-load-more').append(
+                '<div class="spinner-border spinner-border-sm text-primary mt-2" role="status" id="loading-spinner">' +
+                    '<span class="visually-hidden">Загрузка...</span>' +
+                '</div>'
+            );
         }
+    }
     
-        $(document).on('touchmove', function(e) {
-            if ($('#employees-list').data('has-data') === false) {
-                e.preventDefault(); 
-                return false;
-            }
-        });
-    
-        $(window).on('scroll', function() {
-            if ($('#employees-list').data('has-data') === false) {
-                return;
-            }
-    
-            if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
-                loadEmployees();
-            }
-        });
-    
-        function renderEmployees(employees, startIndex) {
-    
-            let html = '';
+    function hideEmployeesLoadingIndicator() {
+        $('#employees-loading').remove();
+        $('#loading-spinner').remove();
+        $('#load-more-btn').prop('disabled', false);
+        $('#employees-header').html(`
+            <div class="row text-bold">
+            <div class="col-auto text-center py-2 fixed-column justify-content-center align-self-center fw-bold">#</div>
+            <div class="col py-2 fw-bold justify-content-center align-self-center">Сотрудник</div>
+            <div class="col-md-3 d-none d-md-block py-2 fw-bold justify-content-center align-self-center">Должность</div>
+            <div class="col-md-3 d-none d-md-block py-2 fw-bold text-center justify-content-center align-self-center">Всего документов</div>
+            </div>
+        `);
+    }
+
+    function renderEmployees(employees, startIndex) {
+        let html = '';
+        
+        employees.forEach(function(employee, index) {
+            const num = startIndex + index + 1;
+            const fullName = [employee.last_name, employee.first_name, employee.middle_name].filter(Boolean).join(' ');
             
-            employees.forEach(function(employee, index) {
-                const num = startIndex + index + 1;
-                const fullName = [employee.last_name, employee.first_name, employee.middle_name].filter(Boolean).join(' ');
-                
-                html += '<div class="row border-top employee-item" data-employee-id="' + employee.id + '">' +
-                        '<div class="col-auto text-center py-2 justify-content-center align-self-center fixed-column">' + num + '</div>' +
-                        '<div class="col py-2 justify-content-center align-self-center">' +
-                            '<a href="javascript:void(0)" class="text-primary-employee">' + fullName + '</a>' +
-                            '<div class="d-block d-md-none">' + (employee.position_name || '-') + '</div>' +
-                            '<div class="d-block d-md-none">Всего документов: <b>' + numberFormat(employee.document_count) + '</b></div>' +
-                        '</div>' +
-                        '<div class="col-md-3 d-none d-md-block py-2 justify-content-center align-self-center">' + (employee.position_name || '-') + '</div>' +
-                        '<div class="col-md-3 d-none d-md-block py-2 text-center justify-content-center align-self-center">' + numberFormat(employee.document_count) + '</div>' +
-                    '</div>';
-            });
-            
-            $('#employees-header').show();
-            
-            if (startIndex === 0) {
-                $('#employees-list').html(html);
-            } else {
-                $('#employees-list').append(html);
-            }
-        }
-    
-        $(window).on('scroll', function() {
-            if ($(window).scrollTop() + $(window).height() > $(document).height() - 300) {
-                loadEmployees();
-            }
+            html += '<div class="row border-top employee-item" data-employee-id="' + employee.id + '">' +
+                    '<div class="col-auto text-center py-2 justify-content-center align-self-center fixed-column">' + num + '</div>' +
+                    '<div class="col py-2 justify-content-center align-self-center">' +
+                        '<a href="javascript:void(0)" class="text-primary-employee">' + fullName + '</a>' +
+                        '<div class="d-block d-md-none">' + (employee.position_name || '-') + '</div>' +
+                        '<div class="d-block d-md-none">Всего документов: <b>' + numberFormat(employee.document_count) + '</b></div>' +
+                    '</div>' +
+                    '<div class="col-md-3 d-none d-md-block py-2 justify-content-center align-self-center">' + (employee.position_name || '-') + '</div>' +
+                    '<div class="col-md-3 d-none d-md-block py-2 text-center justify-content-center align-self-center">' + numberFormat(employee.document_count) + '</div>' +
+                '</div>';
         });
         
-        $('#w0').on('submit', function(e) {
-            e.preventDefault();
-            $('#employees-header').hide();
-            offset = 0;
-            hasMore = true;
-            loadEmployees();
-            $('.offcanvas').offcanvas('hide');
-        });
+        $('#employees-header').show();
         
-        $('#reset-filter').on('click', function(e) {
-            e.preventDefault();
-            $('#employees-header').hide();
-            offset = 0;
-            hasMore = true;
-            setTimeout(function() {
-                loadEmployees();
-            }, 100);
-        });
+        if (startIndex === 0) {
+            $('#employees-list').html(html);
+        } else {
+            $('#employees-list').append(html);
+        }
+    }
+
+    $(document).on('touchmove', function(e) {
+        if ($('#employees-list').data('has-data') === false) {
+            e.preventDefault(); 
+            return false;
+        }
+    });
+
+    $(window).on('scroll', function() {
+        if ($('#employees-list').data('has-data') === false) return;
+
+        if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
+            loadEmployees($('#w0').serialize());
+        }
     });
 JS;
-
 $this->registerJs($jsEmployees);
-?>
 
-<?php
-$employeeDocumentTypesUrl = Url::to(['remd/employee-document-types']);
 $jsModal = <<<JS
     $(document).ready(function() {
         $(document).on('click', '.employee-item, .text-primary-employee', function(e) {
@@ -728,6 +719,7 @@ $jsModal = <<<JS
                     }
                 })
                 .fail(function() {
+                    console.error('Ошибка загрузки статистики сотрудника');
                     $('#employee-stats-container').html(
                         '<p class="text-center py-4 text-danger">Ошибка загрузки данных</p>'
                     );
@@ -773,6 +765,4 @@ $jsModal = <<<JS
         });
     });
 JS;
-
 $this->registerJs($jsModal);
-?>
