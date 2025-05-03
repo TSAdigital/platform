@@ -184,7 +184,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 <svg data-feather="x"></svg>
             </span>
         </div>
-     HTML;
+        HTML;
 
         $form = ActiveForm::begin([
             'action' => ['remd/index'],
