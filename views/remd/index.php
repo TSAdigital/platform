@@ -549,6 +549,7 @@ $js = <<<JS
     
     $('#reset-filter').off('click').on('click', function(e) {
         e.preventDefault();
+        $('#employees-header').hide();
         $('#w0')[0].reset();
         $('[name="document_type"]').val(null).trigger('change');
         $('[name="employee_id"]').val(null).trigger('change');
